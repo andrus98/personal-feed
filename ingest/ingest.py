@@ -382,8 +382,17 @@ def run(args):
             continue
 
         parsed = feedparser.parse(raw)
+        skip_patterns = source.get("skip_url_contains") or []
         added = 0
+        skipped = 0
         for entry in parsed.entries:
+            # Varianti dello stesso pezzo pubblicate dalla fonte su un URL diverso:
+            # Repubblica duplica ogni notizia in versione /audio/. Link diverso,
+            # quindi id diverso, quindi la deduplica da sola non le prende.
+            link = entry.get("link") or ""
+            if any(pattern in link for pattern in skip_patterns):
+                skipped += 1
+                continue
             article, full_text = build_article(entry, source, now)
             if not article:
                 continue
@@ -396,7 +405,9 @@ def run(args):
             added += 1
 
         flag = "  (feed malformato, letto comunque)" if parsed.bozo and not parsed.entries else ""
-        print("  %-38s %3d item, %3d nuovi%s" % (source["id"], len(parsed.entries), added, flag))
+        note = ", %d scartati" % skipped if skipped else ""
+        print("  %-38s %3d item, %3d nuovi%s%s"
+              % (source["id"], len(parsed.entries), added, note, flag))
 
     if failed and len(failed) == len(sources):
         print("\nTutte le fonti hanno fallito: non scrivo nulla.", file=sys.stderr)

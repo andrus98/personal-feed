@@ -1,0 +1,61 @@
+name: Ingestion RSS
+
+on:
+  schedule:
+    # Non allo scoccare dell'ora: i runner gratuiti sono piu' congestionati a :00
+    # e lo slittamento del cron peggiora. Resta comunque approssimativo.
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+# Il GITHUB_TOKEN non deve scrivere niente: sul repo dati si scrive con la
+# deploy key, su questo repo non si scrive affatto.
+permissions:
+  contents: read
+
+# Due run sovrapposti si contenderebbero il push sul repo dati.
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+
+      - name: Checkout del repo dati
+        uses: actions/checkout@v4
+        with:
+          repository: andrus98/personal-feed-data
+          path: data-repo
+          ssh-key: ${{ secrets.DATA_DEPLOY_KEY }}
+          fetch-depth: 1
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ingest/requirements.txt
+
+      - name: Dipendenze
+        run: pip install -r ingest/requirements.txt
+
+      - name: Ingestion
+        run: python ingest/ingest.py --data-dir data-repo
+
+      - name: Commit e push sul repo dati
+        working-directory: data-repo
+        run: |
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Nessun articolo nuovo: niente da committare."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Ingestion $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push

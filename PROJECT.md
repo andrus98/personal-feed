@@ -167,7 +167,9 @@ richieste esterne).
 
 `id` è uno slug stabile scelto a mano, non un uuid: serve a ritrovare la fonte nei file degli
 articoli e deve restare leggibile in un diff. `active: false` disattiva una fonte senza
-cancellarla, come previsto dallo schema originale.
+cancellarla, come previsto dallo schema originale. Due campi facoltativi: `note`, per annotare
+le stranezze di un feed accanto al feed stesso, e `skip_url_contains`, una lista di frammenti
+di URL da scartare in ingestion (vedi la nota su Repubblica in 4bis).
 
 ### Shard di ingestion — `data/YYYY/MM/DD/HH.json`
 
@@ -223,7 +225,7 @@ storica.
 
 A inizio mese l'Action consolida gli shard del mese precedente in un unico file e cancella gli
 shard originali. Il client li scarica solo quando la ricerca copre un periodo che non ha già in
-memoria. Stima con le 24 fonti attuali: ~5-10 MB per mese.
+memoria. Stima con le 23 fonti attuali: ~5-10 MB per mese (misurati ~630 byte per articolo).
 
 ### Testo integrale — `data/full/YYYY/MM/<id>.json`
 
@@ -268,8 +270,16 @@ checkout, e scarta gli item già visti. Sostituisce l'`on conflict (link) do not
 **senza introdurre un file `seen` da riscrivere ogni ora**, che sarebbe esattamente il tipo di
 churn che il layout append-only vuole evitare.
 
-Per non far crescere il tempo di run con l'archivio, il checkout del repo dati è shallow
-(`depth: 1`) e sparse, limitato a `index.json` e agli ultimi ~31 giorni di shard.
+Questo cattura il caso normale — lo stesso articolo ripreso a ogni run del feed — ma non quello
+in cui è la fonte stessa a pubblicare due volte lo stesso pezzo su URL diversi: lì l'hash è
+legittimamente diverso e serve una regola esplicita, `skip_url_contains` sulla fonte.
+
+Il checkout del repo dati nell'Action è shallow (`fetch-depth: 1`), quindi il tempo di run non
+cresce con la history. Cresce però con la dimensione dell'archivio: quando i file mensili
+accumulati renderanno il checkout lento, si passerà a uno sparse checkout limitato a
+`index.json` e agli ultimi ~40 giorni di shard. Non è stato fatto subito perché con un archivio
+ancora vuoto non porta alcun beneficio e introduce interazioni delicate fra sparse checkout,
+consolidamento mensile e `git add`.
 
 ### Ricerca
 
@@ -293,7 +303,6 @@ da verificare manualmente sul sito · ❌ scartato, con motivo.
 
 | Categoria | Fonte | Feed URL | Stato |
 |---|---|---|---|
-| Finanza | MarketWatch – Real-time Headlines | `https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines` | ⚠️ XML valido ma date poco recenti/aggiornamento lento — verificato ma da tenere d'occhio |
 | Finanza | MarketWatch – Bulletins | `https://feeds.content.dowjones.io/public/rss/mw_bulletins` | ✅ Verificato, aggiornato in tempo reale. `description` sempre vuota nel feed (niente anteprima testuale in home per questi articoli), ma il tap-through apre l'articolo completo, no paywall |
 | Economia e business | Il Sole 24 Ore – Economia | `https://www.ilsole24ore.com/rss/economia.xml` | ✅ Confermato dall'utente (XML con date recenti) |
 | Economia e business | Il Sole 24 Ore – Italia, Attualità | `https://www.ilsole24ore.com/rss/italia--attualita.xml` | ✅ Confermato dall'utente |
@@ -331,6 +340,7 @@ da verificare manualmente sul sito · ❌ scartato, con motivo.
 | Eurosport | Non ancora verificato in profondità — nessuna indicazione solida trovata di un feed RSS pubblico stabile |
 | Gazzetta.it | Rimossa su decisione esplicita — sostituita dai feed sport/calcio e sport/serie-a de La Repubblica |
 | PagamentiDigitali.it | Rimossa su decisione esplicita — categoria "News settore pagamenti" ora coperta dai feed Il Sole 24 Ore Finanza/Fintech e Tecnologia/Fintech |
+| MarketWatch – Real-time Headlines | Rimossa dopo verifica sul campo: al primo run reale tutti e 10 gli item erano vecchi, il più datato di 909 giorni. Il feed non porta contenuti freschi e Bulletins copre già la stessa esigenza |
 
 ### Note di qualità sui feed verificati
 
@@ -339,9 +349,14 @@ da verificare manualmente sul sito · ❌ scartato, con motivo.
   scraping o riassunto automatico aggiuntivo. Il tap-through apre comunque l'articolo
   completo (no paywall). Questa è la regola generale da applicare in UI ogni volta che
   `summary` risulta vuoto per qualunque fonte, non solo per questa.
-- **MarketWatch Real-time Headlines**: tecnicamente valido ma con date di pubblicazione datate
-  e sparse nel tempo — probabile aggiornamento poco frequente. Da monitorare una volta in
-  produzione: se non porta contenuti freschi, va rimossa senza perdite (Bulletins la copre già).
+- **La Repubblica, sezioni sport**: ogni notizia viene pubblicata due volte, in versione testo
+  (`/news/`) e in versione audio (`/audio/`), con titolo identico ma URL diverso. Essendo URL
+  diversi la deduplica sul link non le riconosce come lo stesso articolo, e in home la notizia
+  comparirebbe doppia. Le varianti `/audio/` vengono quindi scartate in ingestion tramite il
+  campo `skip_url_contains` delle fonti Repubblica.
+- **ANSA**: capita che due articoli distinti condividano lo stesso titolo, perché l'agenzia
+  ripubblica un pezzo aggiornato su un URL nuovo. Sono notizie realmente diverse, non duplicati,
+  e restano entrambe.
 - **ForzaRoma.info e Giallorossi.net**: unici tra le fonti selezionate a includere il testo
   integrale dell'articolo nel campo `content:encoded` del feed, oltre al solito estratto in
   `description`. Il contenuto esteso viene salvato in file separati sotto `data/full/`
@@ -396,7 +411,7 @@ Workflow `.github/workflows/ingest.yml` nel repo `personal-feed`.
 1. **Trigger**: `schedule` con cron ogni 60 minuti, più `workflow_dispatch` per lanciarlo a mano
    durante lo sviluppo.
 2. **Checkout**: il repo del codice (per `ingest/ingest.py` e `sources.json`) e il repo dati in
-   shallow+sparse, limitato a `index.json` e agli ultimi 31 giorni di shard.
+   shallow (`fetch-depth: 1`), quest'ultimo autenticato con la deploy key.
 3. **Lettura fonti**: `sources.json`, filtrando `active: true`.
 4. **Fetch dei feed**: `feedparser` su ogni `feed_url`, con timeout per fonte ed errori isolati —
    una fonte irraggiungibile non deve far fallire il run delle altre. Gli errori finiscono nel
@@ -428,7 +443,7 @@ Workflow `.github/workflows/ingest.yml` nel repo `personal-feed`.
 1. **Setup repo**: creare `personal-feed` (pubblico, Pages attivo) e `personal-feed-data`
    (pubblico); generare la deploy key SSH e registrarla come deploy key con scrittura sul repo
    dati e come secret `DATA_DEPLOY_KEY` sul repo codice.
-2. **`sources.json`**: trascrivere le 24 fonti della sezione 4bis con le 7 categorie.
+2. **`sources.json`**: trascrivere le 23 fonti della sezione 4bis con le 7 categorie.
 3. **`ingest/ingest.py`**: normalizzazione, dedup, scrittura degli shard. Testabile in locale
    contro una cartella `data/` finta, senza toccare GitHub.
 4. **Workflow**: prima solo `workflow_dispatch`, verificando i commit prodotti; il cron si

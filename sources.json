@@ -11,14 +11,6 @@
 
   "sources": [
     {
-      "id": "mw-realtime",
-      "name": "MarketWatch – Real-time Headlines",
-      "feed_url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines",
-      "category": "finanza",
-      "active": true,
-      "note": "Aggiornamento lento e date sparse. Da monitorare: se non porta contenuti freschi si disattiva, Bulletins la copre gia'."
-    },
-    {
       "id": "mw-bulletins",
       "name": "MarketWatch – Bulletins",
       "feed_url": "https://feeds.content.dowjones.io/public/rss/mw_bulletins",
@@ -115,21 +107,24 @@
       "name": "La Repubblica – Politica",
       "feed_url": "http://www.repubblica.it/rss/politica/rss2.0.xml",
       "category": "politica",
-      "active": true
+      "active": true,
+      "skip_url_contains": ["/audio/"]
     },
     {
       "id": "repubblica-esteri",
       "name": "La Repubblica – Esteri",
       "feed_url": "http://www.repubblica.it/rss/esteri/rss2.0.xml",
       "category": "politica",
-      "active": true
+      "active": true,
+      "skip_url_contains": ["/audio/"]
     },
     {
       "id": "repubblica-cronaca",
       "name": "La Repubblica – Cronaca",
       "feed_url": "http://www.repubblica.it/rss/cronaca/rss2.0.xml",
       "category": "cronaca",
-      "active": true
+      "active": true,
+      "skip_url_contains": ["/audio/"]
     },
     {
       "id": "ansa-cronaca",
@@ -157,14 +152,16 @@
       "name": "La Repubblica – Sport, Calcio",
       "feed_url": "https://www.repubblica.it/rss/sport/calcio/rss2.0.xml",
       "category": "serie-a-roma",
-      "active": true
+      "active": true,
+      "skip_url_contains": ["/audio/"]
     },
     {
       "id": "repubblica-sport-serie-a",
       "name": "La Repubblica – Sport, Serie A",
       "feed_url": "https://www.repubblica.it/rss/sport/serie-a/rss2.0.xml",
       "category": "serie-a-roma",
-      "active": true
+      "active": true,
+      "skip_url_contains": ["/audio/"]
     },
     {
       "id": "forzaroma",
