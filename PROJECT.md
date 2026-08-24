@@ -395,7 +395,7 @@ Workflow `.github/workflows/ingest.yml` nel repo `personal-feed`.
 
 1. **Trigger**: `schedule` con cron ogni 60 minuti, più `workflow_dispatch` per lanciarlo a mano
    durante lo sviluppo.
-2. **Checkout**: il repo del codice (per `ingest.py` e `sources.json`) e il repo dati in
+2. **Checkout**: il repo del codice (per `ingest/ingest.py` e `sources.json`) e il repo dati in
    shallow+sparse, limitato a `index.json` e agli ultimi 31 giorni di shard.
 3. **Lettura fonti**: `sources.json`, filtrando `active: true`.
 4. **Fetch dei feed**: `feedparser` su ogni `feed_url`, con timeout per fonte ed errori isolati —
@@ -429,8 +429,8 @@ Workflow `.github/workflows/ingest.yml` nel repo `personal-feed`.
    (pubblico); generare la deploy key SSH e registrarla come deploy key con scrittura sul repo
    dati e come secret `DATA_DEPLOY_KEY` sul repo codice.
 2. **`sources.json`**: trascrivere le 24 fonti della sezione 4bis con le 7 categorie.
-3. **`ingest.py`**: normalizzazione, dedup, scrittura degli shard. Testabile in locale contro una
-   cartella `data/` finta, senza toccare GitHub.
+3. **`ingest/ingest.py`**: normalizzazione, dedup, scrittura degli shard. Testabile in locale
+   contro una cartella `data/` finta, senza toccare GitHub.
 4. **Workflow**: prima solo `workflow_dispatch`, verificando i commit prodotti; il cron si
    attiva quando un paio di run manuali sono puliti.
 5. **Verifica dati**: controllare per qualche run che gli shard si popolino e che la dedup non

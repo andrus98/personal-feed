@@ -1,0 +1,186 @@
+{
+  "categories": [
+    { "slug": "finanza",           "name": "Finanza" },
+    { "slug": "economia-business", "name": "Economia e business" },
+    { "slug": "politica",          "name": "Politica interna e internazionale" },
+    { "slug": "cronaca",           "name": "Cronaca interna" },
+    { "slug": "ai",                "name": "AI" },
+    { "slug": "pagamenti",         "name": "News settore pagamenti e agentic ecommerce" },
+    { "slug": "serie-a-roma",      "name": "Serie A e AS Roma" }
+  ],
+
+  "sources": [
+    {
+      "id": "mw-realtime",
+      "name": "MarketWatch – Real-time Headlines",
+      "feed_url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines",
+      "category": "finanza",
+      "active": true,
+      "note": "Aggiornamento lento e date sparse. Da monitorare: se non porta contenuti freschi si disattiva, Bulletins la copre gia'."
+    },
+    {
+      "id": "mw-bulletins",
+      "name": "MarketWatch – Bulletins",
+      "feed_url": "https://feeds.content.dowjones.io/public/rss/mw_bulletins",
+      "category": "finanza",
+      "active": true,
+      "note": "description sempre vuota nel feed: in UI si mostra il solo titolo."
+    },
+    {
+      "id": "sole-economia",
+      "name": "Il Sole 24 Ore – Economia",
+      "feed_url": "https://www.ilsole24ore.com/rss/economia.xml",
+      "category": "economia-business",
+      "active": true
+    },
+    {
+      "id": "sole-italia-attualita",
+      "name": "Il Sole 24 Ore – Italia, Attualità",
+      "feed_url": "https://www.ilsole24ore.com/rss/italia--attualita.xml",
+      "category": "economia-business",
+      "active": true
+    },
+    {
+      "id": "sole-italia-politica",
+      "name": "Il Sole 24 Ore – Italia, Politica",
+      "feed_url": "https://www.ilsole24ore.com/rss/italia--politica.xml",
+      "category": "politica",
+      "active": true
+    },
+    {
+      "id": "sole-italia-politica-economica",
+      "name": "Il Sole 24 Ore – Italia, Politica economica",
+      "feed_url": "https://www.ilsole24ore.com/rss/italia--politica-economica.xml",
+      "category": "politica",
+      "active": true
+    },
+    {
+      "id": "sole-mondo-europa",
+      "name": "Il Sole 24 Ore – Mondo, Europa",
+      "feed_url": "https://www.ilsole24ore.com/rss/mondo--europa.xml",
+      "category": "politica",
+      "active": true
+    },
+    {
+      "id": "sole-mondo-usa",
+      "name": "Il Sole 24 Ore – Mondo, USA",
+      "feed_url": "https://www.ilsole24ore.com/rss/mondo--usa.xml",
+      "category": "politica",
+      "active": true
+    },
+    {
+      "id": "sole-mondo-medio-oriente",
+      "name": "Il Sole 24 Ore – Mondo, Medio Oriente",
+      "feed_url": "https://www.ilsole24ore.com/rss/mondo--medio-oriente.xml",
+      "category": "politica",
+      "active": true
+    },
+    {
+      "id": "sole-mondo-asia-oceania",
+      "name": "Il Sole 24 Ore – Mondo, Asia e Oceania",
+      "feed_url": "https://www.ilsole24ore.com/rss/mondo--asia-e-oceania.xml",
+      "category": "politica",
+      "active": true
+    },
+    {
+      "id": "sole-finanza-business",
+      "name": "Il Sole 24 Ore – Finanza, Business",
+      "feed_url": "https://www.ilsole24ore.com/rss/finanza--business.xml",
+      "category": "finanza",
+      "active": true
+    },
+    {
+      "id": "sole-finanza-personale-investimenti",
+      "name": "Il Sole 24 Ore – Finanza personale, Investimenti",
+      "feed_url": "https://www.ilsole24ore.com/rss/finanza-personale--investimenti.xml",
+      "category": "finanza",
+      "active": true
+    },
+    {
+      "id": "sole-finanza-fintech-startup",
+      "name": "Il Sole 24 Ore – Finanza, Fintech e startup",
+      "feed_url": "https://www.ilsole24ore.com/rss/finanza--fintech-e-startup.xml",
+      "category": "pagamenti",
+      "active": true
+    },
+    {
+      "id": "sole-tecnologia-fintech",
+      "name": "Il Sole 24 Ore – Tecnologia, Fintech",
+      "feed_url": "https://www.ilsole24ore.com/rss/tecnologia--fintech.xml",
+      "category": "pagamenti",
+      "active": true
+    },
+    {
+      "id": "repubblica-politica",
+      "name": "La Repubblica – Politica",
+      "feed_url": "http://www.repubblica.it/rss/politica/rss2.0.xml",
+      "category": "politica",
+      "active": true
+    },
+    {
+      "id": "repubblica-esteri",
+      "name": "La Repubblica – Esteri",
+      "feed_url": "http://www.repubblica.it/rss/esteri/rss2.0.xml",
+      "category": "politica",
+      "active": true
+    },
+    {
+      "id": "repubblica-cronaca",
+      "name": "La Repubblica – Cronaca",
+      "feed_url": "http://www.repubblica.it/rss/cronaca/rss2.0.xml",
+      "category": "cronaca",
+      "active": true
+    },
+    {
+      "id": "ansa-cronaca",
+      "name": "ANSA – Cronaca",
+      "feed_url": "https://www.ansa.it/sito/notizie/cronaca/cronaca_rss.xml",
+      "category": "cronaca",
+      "active": true
+    },
+    {
+      "id": "techcrunch-ai",
+      "name": "TechCrunch – AI",
+      "feed_url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+      "category": "ai",
+      "active": true
+    },
+    {
+      "id": "mit-tech-review-ai",
+      "name": "MIT Technology Review – AI",
+      "feed_url": "https://www.technologyreview.com/topic/artificial-intelligence/feed/",
+      "category": "ai",
+      "active": true
+    },
+    {
+      "id": "repubblica-sport-calcio",
+      "name": "La Repubblica – Sport, Calcio",
+      "feed_url": "https://www.repubblica.it/rss/sport/calcio/rss2.0.xml",
+      "category": "serie-a-roma",
+      "active": true
+    },
+    {
+      "id": "repubblica-sport-serie-a",
+      "name": "La Repubblica – Sport, Serie A",
+      "feed_url": "https://www.repubblica.it/rss/sport/serie-a/rss2.0.xml",
+      "category": "serie-a-roma",
+      "active": true
+    },
+    {
+      "id": "forzaroma",
+      "name": "ForzaRoma.info",
+      "feed_url": "https://www.forzaroma.info/feed",
+      "category": "serie-a-roma",
+      "active": true,
+      "note": "Espone content:encoded col testo integrale: finisce in data/full/."
+    },
+    {
+      "id": "giallorossi",
+      "name": "Giallorossi.net",
+      "feed_url": "https://www.giallorossi.net/feed/",
+      "category": "serie-a-roma",
+      "active": true,
+      "note": "Espone content:encoded col testo integrale: finisce in data/full/."
+    }
+  ]
+}
