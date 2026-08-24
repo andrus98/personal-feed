@@ -42,7 +42,11 @@ TRACKING_PARAMS = {
 }
 
 TAG_RE = re.compile(r"<[^>]+>")
-WS_RE = re.compile(r"[ \t\r\f\v]+")
+# Gli spazi unicode vanno collassati insieme a quelli normali: &nbsp; e simili
+# sopravvivrebbero dentro titoli e summary, invisibili a occhio ma capaci di far
+# fallire una ricerca per "sà bene" scritta con lo spazio della tastiera.
+WS_RE = re.compile(r"[ \t\r\f\v\u00a0\u2002\u2003\u2007\u2009\u202f]+")
+ZERO_WIDTH_RE = re.compile(r"[\u00ad\u200b\u200c\u200d\ufeff]")
 SCRIPT_RE = re.compile(r"(?is)<(script|style)\b.*?</\1>")
 BREAK_RE = re.compile(r"(?i)</p\s*>|<br\s*/?>|</div\s*>|</li\s*>")
 IMG_RE = re.compile(r"""(?i)<img[^>]+src\s*=\s*["']([^"']+)["']""")
@@ -82,6 +86,7 @@ def html_to_text(raw, keep_breaks=False):
         text = BREAK_RE.sub("\n", text)
     text = TAG_RE.sub(" ", text)
     text = html_module.unescape(text)
+    text = ZERO_WIDTH_RE.sub("", text)
     text = WS_RE.sub(" ", text)
     if keep_breaks:
         text = re.sub(r"\s*\n\s*", "\n", text)

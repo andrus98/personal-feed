@@ -56,6 +56,11 @@ jobs:
           key: http-cache-${{ github.run_id }}
           restore-keys: http-cache-
 
+      # Prima di scrivere: se la normalizzazione e' rotta, meglio un run fallito
+      # che uno shard di articoli sbagliati committato per sempre.
+      - name: Selftest
+        run: python ingest/selftest.py
+
       - name: Ingestion
         run: python ingest/ingest.py --data-dir data-repo
 
