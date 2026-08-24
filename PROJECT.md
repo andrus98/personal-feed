@@ -47,7 +47,7 @@ Tutto vive dentro GitHub: codice, dati, esecuzione schedulata e hosting. Nessun 
 esterno, nessun backend, nessun dominio da pagare. Costo di esercizio: zero.
 
 ```
-┌──────────────────────────────┐   cron ~60'   ┌──────────────────────────────┐
+┌──────────────────────────────┐   cron ~30'   ┌──────────────────────────────┐
 │  GitHub Actions              │──────────────▶│  personal-feed-data          │
 │  (nel repo personal-feed)    │  commit via   │  (repo pubblico, solo JSON)  │
 │  ingest.py + feedparser      │  deploy key   │   data/YYYY/MM/DD/HH.json    │
@@ -121,7 +121,7 @@ esterno, nessun backend, nessun dominio da pagare. Costo di esercizio: zero.
 | Frontend | HTML/CSS/JS vanilla, PWA | Nessun bundler, nessun build step |
 | Hosting | GitHub Pages (repo `personal-feed`) | `andrus98.github.io/personal-feed/`, HTTPS incluso, nessun dominio |
 | Database | File JSON nel repo `personal-feed-data` | Letti dal client via `raw.githubusercontent.com` |
-| Ingestion/ETL | GitHub Actions + Python 3 (`feedparser`) | Sostituisce n8n. Cron ~60'. `feedparser` è la libreria più tollerante verso feed sporchi |
+| Ingestion/ETL | GitHub Actions + Python 3 (`feedparser`) | Sostituisce n8n. Cron ~30', con richieste condizionali. `feedparser` è la libreria più tollerante verso feed sporchi |
 | Auth Action → dati | Deploy key SSH (secret `DATA_DEPLOY_KEY`) | Scrittura sul solo repo dati, senza scadenza |
 | Auth browser → dati | PAT fine-grained su `personal-feed-data`, Contents: Read and write | Solo per lo stato letto/salvato. Lo inserisce l'utente, resta in `localStorage` |
 | Ricerca | Client-side sui file mensili scaricati on demand | Sostituisce la full-text search di Postgres |
@@ -208,6 +208,12 @@ Prodotto da un singolo run e **mai riscritto**. Contiene solo gli articoli *nuov
 
 Il manifesto che il client legge per primo. Piccolo (qualche KB), riscritto a ogni run — è
 l'unico file la cui riscrittura frequente è accettabile proprio perché resta minuscolo.
+
+Conseguenza voluta: c'è un commit sul repo dati a ogni run, anche quando non è arrivato niente
+di nuovo, perché `updated_at` cambia comunque. Serve a due cose: l'app può dire "ultimo
+controllo alle 14:47" invece di lasciarti nel dubbio, e la cronologia dei commit diventa il
+segnale di vita dell'ingestion — se si ferma, si vede subito. Il costo è qualche decina di byte
+per commit.
 
 ```json
 {
@@ -408,14 +414,13 @@ eventuale XSS di spedirlo altrove.
 
 Workflow `.github/workflows/ingest.yml` nel repo `personal-feed`.
 
-1. **Trigger**: `schedule` con cron ogni 60 minuti, più `workflow_dispatch` per lanciarlo a mano
-   durante lo sviluppo.
+1. **Trigger**: `schedule` con cron ogni 30 minuti, più `workflow_dispatch` per lanciarlo a mano.
 2. **Checkout**: il repo del codice (per `ingest/ingest.py` e `sources.json`) e il repo dati in
    shallow (`fetch-depth: 1`), quest'ultimo autenticato con la deploy key.
 3. **Lettura fonti**: `sources.json`, filtrando `active: true`.
-4. **Fetch dei feed**: `feedparser` su ogni `feed_url`, con timeout per fonte ed errori isolati —
-   una fonte irraggiungibile non deve far fallire il run delle altre. Gli errori finiscono nel
-   log del workflow.
+4. **Fetch dei feed**: richiesta condizionale su ogni `feed_url` (vedi sotto), con timeout per
+   fonte ed errori isolati — una fonte irraggiungibile non deve far fallire il run delle altre.
+   Gli errori finiscono nel log del workflow. Il parsing è di `feedparser`.
 5. **Normalizzazione**: mappatura dei campi RSS (`title`, `link`, `description`/`content:encoded`,
    `pubDate`, `media:content`/`enclosure`) sullo schema della sezione 4, con `category` ereditata
    dalla fonte, `summary` ripulito e troncato, date normalizzate a UTC ISO-8601.
@@ -426,6 +431,23 @@ Workflow `.github/workflows/ingest.yml` nel repo `personal-feed`.
    sono articoli nuovi, nessun commit.
 8. **Consolidamento mensile**: al primo run del mese, gli shard del mese precedente vengono
    uniti in `data/YYYY/YYYY-MM.json` e cancellati.
+
+### Richieste condizionali
+
+A ogni fonte si rimandano l'`ETag` e il `Last-Modified` ricevuti la volta precedente. Se il feed
+non è cambiato il server risponde `304 Not Modified` senza spedire il corpo: poche centinaia di
+byte di intestazioni invece di qualche centinaio di KB di XML, e il parsing si salta del tutto.
+
+È ciò che rende sostenibile una cadenza di 30 minuti — e che renderebbe quasi gratuito un
+eventuale refresh a chiamata dall'app. Misurato sulle fonti attuali: **17 feed su 23 rispondono
+`304`**. I sei che non lo fanno (le quattro sezioni di Repubblica e ANSA) non espongono nessuno
+dei due header e vanno riscaricati per forza.
+
+I validatori vivono nella **cache di GitHub Actions**, non nel repo dati: sono metadati effimeri
+e committarli a ogni run sarebbe churn puro. Se la cache si perde, il run successivo riscarica
+tutto e la ricostruisce da sé. Vengono salvati solo **dopo** che lo shard è stato scritto: se il
+run morisse a metà, un `304` al giro dopo farebbe perdere per sempre gli articoli di quella
+finestra.
 
 ### Due caveat operativi di GitHub Actions
 
@@ -474,5 +496,10 @@ Restano aperte:
   in fase di sviluppo frontend
 - Per ForzaRoma.info e Giallorossi.net: se mostrare il contenuto di `data/full/` direttamente
   in-app quando disponibile, invece del tap-through
-- Frequenza definitiva del cron (60' è il punto di partenza) e se differenziarla per fonte
+- Se aggiungere un refresh a chiamata dall'app: tecnicamente fattibile con un PAT fine-grained
+  che abbia **solo** `Actions: Read and write` e non `Contents`, così il browser può far partire
+  il workflow ma non può toccare il codice. Da decidere in fase di frontend, insieme a come
+  presentarlo: fra il click e i dati nuovi passano ~30 secondi di run più la cache CDN, quindi
+  non può essere lo stesso pulsante del refresh normale
+- Se differenziare la frequenza per fonte (ANSA pubblica molto più spesso del Sole)
 - Nome definitivo dei due repo

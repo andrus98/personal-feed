@@ -331,13 +331,39 @@ def build_index(data_dir, now):
 # run
 # --------------------------------------------------------------------------
 
-def fetch(url, timeout=FETCH_TIMEOUT):
-    request = urllib.request.Request(url, headers={
+def fetch(url, cached=None, timeout=FETCH_TIMEOUT):
+    """Scarica il feed, ma solo se e' cambiato.
+
+    Rimandando indietro l'ETag e il Last-Modified ricevuti la volta scorsa, un
+    feed immutato risponde 304 senza spedire il corpo: poche centinaia di byte
+    di intestazioni invece di qualche centinaio di KB di XML. E' cio' che rende
+    accettabile alzare la frequenza dei run senza pesare sugli editori.
+
+    Ritorna (bytes, validatori) oppure (None, validatori) se non e' cambiato.
+    """
+    headers = {
         "User-Agent": USER_AGENT,
         "Accept": "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8",
-    })
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return response.read()
+    }
+    if cached:
+        if cached.get("etag"):
+            headers["If-None-Match"] = cached["etag"]
+        if cached.get("last_modified"):
+            headers["If-Modified-Since"] = cached["last_modified"]
+
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            validators = {}
+            if response.headers.get("ETag"):
+                validators["etag"] = response.headers["ETag"]
+            if response.headers.get("Last-Modified"):
+                validators["last_modified"] = response.headers["Last-Modified"]
+            return response.read(), validators
+    except urllib.error.HTTPError as err:
+        if err.code == 304:
+            return None, cached
+        raise
 
 
 def load_sources(path):
@@ -365,21 +391,31 @@ def run(args):
 
     sources = load_sources(args.sources)
     seen = load_seen(args.data_dir, now)
-    print("fonti attive: %d — id gia' noti negli ultimi %d giorni: %d"
-          % (len(sources), SEEN_DAYS, len(seen)))
+    cache = {} if args.ignore_cache else (read_json(args.cache, {}) or {})
+    print("fonti attive: %d — id noti negli ultimi %d giorni: %d — validatori in cache: %d"
+          % (len(sources), SEEN_DAYS, len(seen), len(cache)))
 
     fresh = []
     full_texts = {}
     batch = set()
     failed = []
+    unchanged = 0
+    validators = dict(cache)
 
     for source in sources:
         try:
-            raw = fetch(source["feed_url"])
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError) as err:
+            raw, source_validators = fetch(source["feed_url"], cache.get(source["id"]))
+        except (urllib.error.URLError, OSError) as err:
             failed.append(source["id"])
             print("  %-38s ERRORE  %s" % (source["id"], err))
             continue
+
+        if raw is None:
+            unchanged += 1
+            print("  %-38s  304, non modificato" % source["id"])
+            continue
+        if source_validators:
+            validators[source["id"]] = source_validators
 
         parsed = feedparser.parse(raw)
         skip_patterns = source.get("skip_url_contains") or []
@@ -414,8 +450,8 @@ def run(args):
         return 1
 
     fresh.sort(key=lambda a: a.get("published_at") or "", reverse=True)
-    print("\ntotale articoli nuovi: %d (di cui %d con testo integrale)"
-          % (len(fresh), len(full_texts)))
+    print("\ntotale articoli nuovi: %d (di cui %d con testo integrale) — %d feed non modificati"
+          % (len(fresh), len(full_texts), unchanged))
 
     if args.dry_run:
         print("dry-run: nessun file scritto.")
@@ -454,6 +490,11 @@ def run(args):
     index_path = os.path.join(data_root(args.data_dir), "index.json")
     write_json(index_path, build_index(args.data_dir, now))
     print("aggiornato data/index.json")
+
+    # I validatori si salvano solo adesso, a scrittura avvenuta: se il run
+    # fosse morto prima, al giro successivo un 304 ci farebbe perdere per
+    # sempre gli articoli di questa finestra.
+    write_json(args.cache, validators)
     return 0
 
 
@@ -464,6 +505,10 @@ def main():
                         help="percorso di sources.json")
     parser.add_argument("--data-dir", default=os.path.join(here, os.pardir, os.pardir, "personal-feed-data"),
                         help="radice del repo dati (quella che contiene data/)")
+    parser.add_argument("--cache", default=os.path.join(here, os.pardir, ".cache", "http-cache.json"),
+                        help="file con gli ETag per le richieste condizionali")
+    parser.add_argument("--ignore-cache", action="store_true",
+                        help="ignora gli ETag e riscarica tutti i feed")
     parser.add_argument("--dry-run", action="store_true",
                         help="scarica e normalizza ma non scrive niente")
     parser.add_argument("--consolidate", action="store_true",
@@ -473,6 +518,7 @@ def main():
     args = parser.parse_args()
     args.data_dir = os.path.abspath(args.data_dir)
     args.sources = os.path.abspath(args.sources)
+    args.cache = os.path.abspath(args.cache)
     return run(args)
 
 

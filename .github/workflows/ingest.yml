@@ -2,9 +2,11 @@ name: Ingestion RSS
 
 on:
   schedule:
-    # Non allo scoccare dell'ora: i runner gratuiti sono piu' congestionati a :00
-    # e lo slittamento del cron peggiora. Resta comunque approssimativo.
-    - cron: "17 * * * *"
+    # Ogni 30 minuti, e non a :00 o :30: i runner gratuiti sono piu' congestionati
+    # sugli scatti tondi e lo slittamento del cron peggiora. Resta approssimativo.
+    # La frequenza e' sostenibile per gli editori grazie alle richieste
+    # condizionali: un feed immutato risponde 304 e non spedisce nulla.
+    - cron: "17,47 * * * *"
   workflow_dispatch:
 
 # Il GITHUB_TOKEN non deve scrivere niente: sul repo dati si scrive con la
@@ -43,6 +45,16 @@ jobs:
 
       - name: Dipendenze
         run: pip install -r ingest/requirements.txt
+
+      # Gli ETag dei feed. Stanno qui e non nel repo dati perche' sono metadati
+      # effimeri: committarli a ogni run sarebbe churn puro. Se la cache si
+      # perde, il run successivo riscarica tutto e la ricostruisce.
+      - name: Cache dei validatori HTTP
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: http-cache-${{ github.run_id }}
+          restore-keys: http-cache-
 
       - name: Ingestion
         run: python ingest/ingest.py --data-dir data-repo

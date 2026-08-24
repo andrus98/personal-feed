@@ -1,5 +1,8 @@
 .DS_Store
 
+# ETag dei feed: metadati effimeri, vivono nella cache di Actions
+.cache/
+
 # Python (script di ingestion)
 __pycache__/
 *.py[cod]
