@@ -34,7 +34,9 @@ let pullEl = null;
 // --------------------------------------------------------------------------
 
 function buildTopbar() {
-  const title = el('h1', { class: 'brand', text: app.tab === 'feed' ? 'Feed' : 'Archivio' });
+  // Il marchio resta sempre lo stesso, come in qualunque app: a dire in quale
+  // sezione sei ci pensano la tab bar accesa e il testo del campo di ricerca.
+  const title = el('h1', { class: 'brand', text: 'Feed' });
 
   const stamp = el('span', {
     class: 'stamp',

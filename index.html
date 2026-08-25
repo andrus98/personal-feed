@@ -9,13 +9,15 @@
      testate, che sono decine e cambiano. Gli script restano 'self'. -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self'; connect-src 'self' https://raw.githubusercontent.com; img-src 'self' https: data:; object-src 'none'; base-uri 'none'; form-action 'none'">
-<meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#000000">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- black-translucent: la barra di stato si fonde col nero dell'app invece di
+     tagliarla con una fascia grigia. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Feed">
-<title>Personal Feed</title>
+<title>Feed</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <!-- iOS non prende l'icona dal manifest: la vuole qui. -->
 <link rel="apple-touch-icon" href="./icons/icon-180.png">

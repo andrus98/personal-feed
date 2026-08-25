@@ -1,7 +1,10 @@
 # personal-feed
 
 PWA personale che aggrega notizie da un set curato di fonti RSS, organizzate per
-categoria, con storico ricercabile e articoli salvati.
+categoria, con storico ricercabile e articoli salvati. Sul dispositivo si chiama
+**Feed**.
+
+**App:** <https://andrus98.github.io/personal-feed/>
 
 Tutto vive su GitHub: il codice e l'hosting qui, gli articoli nel repo dati
 `personal-feed-data`, l'ingestion su GitHub Actions. Nessun servizio esterno,

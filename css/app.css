@@ -3,48 +3,32 @@
    fondo. Tema chiaro e scuro seguono il sistema, perche' un lettore di
    notizie si apre a qualsiasi ora. */
 
+/* Tema scuro fisso, non piu' agganciato al sistema: il nero pieno e
+   l'evidenziatore bianco sono l'identita' dell'app, non una preferenza. */
 :root {
-  --bg: #faf9f7;
-  --surface: #ffffff;
-  --surface-2: #f2f1ee;
-  --text: #16181d;
-  --text-muted: #6a6f7a;
-  --text-faint: #9aa0ab;
-  --border: #e6e4df;
-  --border-strong: #d8d5ce;
-  --accent: #b4460a;
-  --shadow: 0 1px 2px rgba(20, 22, 28, .05);
+  color-scheme: dark;
 
-  /* Evidenziatore del titolo: blocco scuro, testo chiaro. Nel tema scuro si
-     inverte. E' la firma visiva della scheda, quindi resta forte in entrambi. */
-  --hl-bg: #16181d;
-  --hl-ink: #faf9f7;
+  --bg: #000000;
+  --surface: #0d0e11;
+  --surface-2: #1a1c21;
+  --text: #f4f4f6;
+  --text-muted: #9aa0ab;
+  --text-faint: #71767f;
+  --border: #1f2227;
+  --border-strong: #2e323a;
+  --accent: #f0863f;
+  --shadow: none;
+
+  /* Evidenziatore del titolo: fascia bianca, testo nero. E' la firma visiva
+     della scheda ed e' il motivo per cui lo sfondo deve restare nero pieno. */
+  --hl-bg: #ffffff;
+  --hl-ink: #000000;
 
   --cat-h: 24;
   --cat-s: 82%;
-  --cat-l: 36%;
-  --chip-a: .10;
-  --tap: rgba(20, 22, 28, .05);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e1014;
-    --surface: #171a20;
-    --surface-2: #1f232b;
-    --text: #eceef2;
-    --text-muted: #99a0ad;
-    --text-faint: #6e7684;
-    --border: #262b34;
-    --border-strong: #333944;
-    --accent: #f0863f;
-    --shadow: none;
-    --hl-bg: #f4f2ee;
-    --hl-ink: #101318;
-    --cat-l: 68%;
-    --chip-a: .16;
-    --tap: rgba(255, 255, 255, .06);
-  }
+  --cat-l: 68%;
+  --chip-a: .16;
+  --tap: rgba(255, 255, 255, .06);
 }
 
 /* Tinte per categoria: servono a riconoscere l'argomento prima di leggere.
@@ -105,7 +89,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
   margin-bottom: 10px;
 }
 
-.brand { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+/* Il marchio: quattro lettere pesanti e strette, bianche sul nero. Lo scaleX
+   ottiene la compressione anche dove font-stretch non viene onorato, che su
+   iOS e' la regola piu' che l'eccezione. */
+.brand {
+  margin: 0;
+  font-family: "Helvetica Neue", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  font-size: 30px;
+  font-weight: 900;
+  font-stretch: 75%;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: -.035em;
+  color: var(--text);
+  transform: scaleX(.92);
+  transform-origin: left center;
+}
 
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
@@ -239,8 +238,43 @@ button { font: inherit; color: inherit; cursor: pointer; }
   border-radius: 12px;
   overflow: hidden;
   background: var(--surface-2);
+  /* La copertina e' un <a>: senza questo, il testo della copertina generata
+     eredita sottolineatura e colore del link. */
+  text-decoration: none;
+  color: inherit;
 }
 .cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Copertina per gli articoli che arrivano senza immagine: il nome della
+   categoria come texture tipografica, sul suo stesso colore. Non e' un
+   segnaposto grigio, e' una copertina diversa. */
+.cover-gen {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 100%;
+  padding: 10px 12px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 100% at 12% 108%,
+      hsl(var(--cat-h) var(--cat-s) 26% / .55) 0%, transparent 62%),
+    linear-gradient(148deg,
+      hsl(var(--cat-h) calc(var(--cat-s) * .8) 15%) 0%,
+      #08090b 78%);
+}
+
+.cover-word {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: .92;
+  letter-spacing: -.035em;
+  text-transform: uppercase;
+  color: hsl(var(--cat-h) var(--cat-s) var(--cat-l) / .34);
+  /* Le categorie lunghe non devono spingere fuori la scatola: si lasciano
+     tagliare, perche' qui il testo e' decorazione e la chip dice gia' tutto. */
+  overflow: hidden;
+  max-height: 100%;
+}
 
 /* La chip sull'immagine ha bisogno di un fondo proprio: sopra una foto
    qualsiasi, il colore da solo non garantisce contrasto. */

@@ -28,13 +28,35 @@ async function share(article) {
   }
 }
 
+/**
+ * Copertina tipografica per gli articoli che il feed manda senza immagine.
+ *
+ * Circa un quarto delle notizie non ne ha una: recuperarla vorrebbe dire
+ * aprire la pagina di ogni articolo per leggerne l'og:image, cioe' scraping
+ * HTML, che il PROJECT.md esclude e che aggiungerebbe centinaia di richieste
+ * a ogni run. Questa invece e' costruita dal colore della categoria, non
+ * scarica niente e non lascia mai un buco al posto della copertina.
+ */
+function generatedCover(categoryName) {
+  return el('span', { class: 'cover-gen' }, [
+    el('span', { class: 'cover-word', text: categoryName }),
+  ]);
+}
+
 export function articleCard(article, names, onToggle) {
   const categoryName = names.categories.get(article.category) ?? article.category;
   const sourceName = names.sources.get(article.source) ?? article.source;
 
-  const chip = el('span', { class: 'chip', text: categoryName });
+  const cover = el('a', {
+    class: 'cover',
+    href: article.link,
+    target: '_blank',
+    rel: 'noopener noreferrer',
+    tabindex: '-1',
+    'aria-hidden': 'true',
+    onclick: () => openLink(article, card),
+  }, [el('span', { class: 'chip', text: categoryName })]);
 
-  let cover = null;
   if (article.image_url) {
     const img = el('img', {
       class: 'cover-img',
@@ -43,25 +65,17 @@ export function articleCard(article, names, onToggle) {
       loading: 'lazy',
       decoding: 'async',
       referrerpolicy: 'no-referrer',
-      // Un'anteprima rotta lascerebbe un rettangolo vuoto alto 200px: meglio
-      // che la scheda si richiuda sul testo come se l'immagine non ci fosse.
-      onerror: () => cover.remove(),
+      // Un'immagine che non arriva non deve lasciare un rettangolo vuoto:
+      // si sostituisce con la copertina tipografica, come se non ci fosse
+      // mai stata.
+      onerror: () => { img.replaceWith(generatedCover(categoryName)); },
     });
-    cover = el('a', {
-      class: 'cover',
-      href: article.link,
-      target: '_blank',
-      rel: 'noopener noreferrer',
-      tabindex: '-1',
-      'aria-hidden': 'true',
-      onclick: () => openLink(article, card),
-    }, [img, chip]);
+    cover.prepend(img);
+  } else {
+    cover.prepend(generatedCover(categoryName));
   }
 
   const meta = el('div', { class: 'post-meta' }, [
-    // Senza copertina la chip non ha dove appoggiarsi: scende accanto all'ora,
-    // cosi' la categoria resta sempre visibile a colpo d'occhio.
-    cover ? null : chip,
     el('span', { class: 'meta-ico', html: ICON.clock }),
     el('span', { text: relativeTime(article.published_at) }),
     el('span', { class: 'dot', text: '·' }),
