@@ -16,8 +16,11 @@ export function resetPaging() {
 
 export function renderFeed(container, app) {
   const query = app.query;
-  if (paging.key !== query) {
-    paging.key = query;
+  // Cambiare filtro o ricerca riparte dall'inizio; un salvataggio invece
+  // ridisegna la lista e non deve riportarti in cima.
+  const key = `${app.category ?? ''}|${query}`;
+  if (paging.key !== key) {
+    paging.key = key;
     paging.limit = PAGE_SIZE;
   }
 
@@ -30,17 +33,25 @@ export function renderFeed(container, app) {
     return;
   }
 
-  const list = filterArticles(app.articles, query, app.names.categories);
+  const inCategory = app.category
+    ? app.articles.filter((article) => article.category === app.category)
+    : app.articles;
+  const list = filterArticles(inCategory, query, app.names.categories);
 
-  if (normalize(query)) {
+  if (normalize(query) || app.category) {
     container.append(el('p', {
       class: 'result-count',
-      text: list.length === 1 ? '1 risultato' : `${list.length} risultati`,
+      text: list.length === 1 ? '1 articolo' : `${list.length} articoli`,
     }));
   }
 
   if (!list.length) {
-    container.append(emptyState('Nessun risultato', `Niente che corrisponda a "${query}".`));
+    container.append(emptyState(
+      'Nessun risultato',
+      normalize(query)
+        ? `Niente che corrisponda a "${query}".`
+        : 'Questa categoria non ha articoli nella finestra recente.',
+    ));
     return;
   }
 

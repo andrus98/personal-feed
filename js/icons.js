@@ -22,4 +22,8 @@ export const ICON = {
   close: wrap('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'),
 
   empty: wrap('<path d="M4 7h10M4 12h10M4 17h6"/><rect x="16.5" y="6" width="3.5" height="12" rx="1"/>', 'stroke-width="1.2"'),
+
+  clock: wrap('<circle cx="12" cy="12" r="8"/><path d="M12 7.6V12l3 1.8"/>'),
+
+  share: wrap('<path d="M20.5 3.5L10.8 13.2"/><path d="M20.5 3.5l-6.2 17-3.5-7.3-7.3-3.5z"/>'),
 };

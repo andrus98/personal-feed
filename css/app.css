@@ -1,6 +1,7 @@
 /* Personal Feed — foglio di stile unico, niente build step.
-   Tema chiaro e scuro seguono il sistema: un lettore di notizie si apre a
-   qualsiasi ora, e imporre il bianco alle sei di mattina e' una crudelta'. */
+   Ogni notizia e' un post: copertina larga, titolo evidenziato, azioni in
+   fondo. Tema chiaro e scuro seguono il sistema, perche' un lettore di
+   notizie si apre a qualsiasi ora. */
 
 :root {
   --bg: #faf9f7;
@@ -13,9 +14,16 @@
   --border-strong: #d8d5ce;
   --accent: #b4460a;
   --shadow: 0 1px 2px rgba(20, 22, 28, .05);
+
+  /* Evidenziatore del titolo: blocco scuro, testo chiaro. Nel tema scuro si
+     inverte. E' la firma visiva della scheda, quindi resta forte in entrambi. */
+  --hl-bg: #16181d;
+  --hl-ink: #faf9f7;
+
+  --cat-h: 24;
+  --cat-s: 82%;
   --cat-l: 36%;
   --chip-a: .10;
-  --radius: 14px;
   --tap: rgba(20, 22, 28, .05);
 }
 
@@ -31,16 +39,17 @@
     --border-strong: #333944;
     --accent: #f0863f;
     --shadow: none;
+    --hl-bg: #f4f2ee;
+    --hl-ink: #101318;
     --cat-l: 68%;
     --chip-a: .16;
     --tap: rgba(255, 255, 255, .06);
   }
 }
 
-/* Tinte per categoria. Servono a scorrere il feed riconoscendo l'argomento
-   prima di leggere: con sette categorie mescolate, il colore fa piu' lavoro
-   dell'etichetta. */
-[data-cat] { --cat-h: 220; --cat-s: 8%; }
+/* Tinte per categoria: servono a riconoscere l'argomento prima di leggere.
+   Con sette categorie mescolate il colore fa piu' lavoro dell'etichetta. */
+[data-cat]                     { --cat-h: 220; --cat-s: 8%; }
 [data-cat="finanza"]           { --cat-h: 158; --cat-s: 58%; }
 [data-cat="economia-business"] { --cat-h: 214; --cat-s: 70%; }
 [data-cat="politica"]          { --cat-h: 258; --cat-s: 54%; }
@@ -51,11 +60,7 @@
 
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  height: 100%;
-  overscroll-behavior-y: none;
-}
+html, body { margin: 0; height: 100%; overscroll-behavior-y: none; }
 
 body {
   background: var(--bg);
@@ -69,11 +74,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .app {
   display: grid;
+  /* 100% esplicito, non 1fr: la fila delle categorie e' piu' larga dello
+     schermo, e con la larghezza automatica di grid allargherebbe la colonna
+     invece di scorrere per conto suo, trascinandosi dietro tutto il resto. */
+  grid-template-columns: 100%;
   grid-template-rows: auto 1fr auto;
   height: 100dvh;
   position: relative;
   overflow: hidden;
 }
+
+.topbar, .screen, .tabbar { min-width: 0; }
 
 /* ---------------------------------------------------------------- topbar */
 
@@ -94,12 +105,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   margin-bottom: 10px;
 }
 
-.brand {
-  margin: 0;
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -.02em;
-}
+.brand { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
 
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
@@ -169,142 +175,180 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .search-clear svg { width: 12px; height: 12px; }
 .search-clear[hidden] { display: none; }
 
+/* ------------------------------------------------------ filtro categorie */
+
+.catbar {
+  display: flex;
+  gap: 7px;
+  /* Sfonda il padding del topbar cosi' la fila scorre da bordo a bordo,
+     invece di fermarsi in un canale stretto in mezzo allo schermo. */
+  margin: 10px -16px -2px;
+  padding: 0 16px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.catbar::-webkit-scrollbar { display: none; }
+
+.cat-chip {
+  flex: 0 0 auto;
+  padding: 6px 13px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.cat-chip:active { background: var(--surface-2); }
+.cat-chip.is-active {
+  color: hsl(var(--cat-h) var(--cat-s) var(--cat-l));
+  background: hsl(var(--cat-h) var(--cat-s) var(--cat-l) / var(--chip-a));
+  border-color: hsl(var(--cat-h) var(--cat-s) var(--cat-l) / .35);
+  font-weight: 650;
+}
+
 /* -------------------------------------------------------------- schermata */
 
 .screen {
   overflow-y: auto;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 12px 12px 20px;
+  padding: 12px 12px 24px;
 }
 
-.list { display: flex; flex-direction: column; gap: 10px; }
+.list { display: flex; flex-direction: column; gap: 14px; }
 
-.result-count {
-  margin: 2px 4px 10px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
+.result-count { margin: 2px 4px 10px; font-size: 13px; color: var(--text-muted); }
 
-/* ------------------------------------------------------------------ card */
+/* ------------------------------------------------------------------ post */
 
-.card {
+.post {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 18px;
   box-shadow: var(--shadow);
-  padding: 14px;
-  transition: opacity .2s;
+  padding: 12px 12px 6px;
 }
 
-.card-main {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  text-decoration: none;
-  color: inherit;
+.cover {
+  display: block;
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
 }
+.cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-.card-text { flex: 1; min-width: 0; }
+/* La chip sull'immagine ha bisogno di un fondo proprio: sopra una foto
+   qualsiasi, il colore da solo non garantisce contrasto. */
+.cover .chip {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(10, 12, 16, .62);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
 
 .chip {
   display: inline-block;
-  margin-bottom: 6px;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: .01em;
   color: hsl(var(--cat-h) var(--cat-s) var(--cat-l));
   background: hsl(var(--cat-h) var(--cat-s) var(--cat-l) / var(--chip-a));
 }
 
-.card-title {
+.post-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 11px;
+  font-size: 12px;
+  color: var(--text-faint);
+  min-width: 0;
+}
+.post-meta .chip { margin-right: 2px; }
+.meta-ico { display: grid; }
+.meta-ico svg { width: 13px; height: 13px; }
+.meta-source { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.post-meta .dot { flex: 0 0 auto; }
+
+/* Il titolo con l'evidenziatore: lo span e' inline, cosi' box-decoration-break
+   ripete sfondo e padding su ogni riga invece di disegnare un rettangolo unico
+   attorno al blocco. line-height alto serve a lasciare aria fra le fasce. */
+.post-title {
+  display: block;
+  margin-top: 9px;
+  text-decoration: none;
+}
+.post-title .hl {
+  display: inline;
+  padding: 3px 7px;
+  background: var(--hl-bg);
+  color: var(--hl-ink);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.66;
+  letter-spacing: -.021em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.post-body { margin-top: 12px; }
+
+.post-summary {
   margin: 0;
-  font-size: 16.5px;
-  font-weight: 650;
-  line-height: 1.32;
-  letter-spacing: -.011em;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* Due righe di contesto, come richiesto: abbastanza per capire se l'articolo
-   interessa, non tanto da trasformare il feed in un muro di testo. */
-.card-summary {
-  margin: 5px 0 0;
-  font-size: 13.5px;
-  line-height: 1.45;
-  color: var(--text-muted);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.card-thumb {
-  width: 82px;
-  height: 82px;
-  flex: 0 0 82px;
-  border-radius: 10px;
-  object-fit: cover;
-  background: var(--surface-2);
-}
-
-.card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 11px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.save-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 11px 5px 9px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: none;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-weight: 550;
-}
-.save-btn:active { background: var(--tap); }
-.save-btn svg { width: 15px; height: 15px; display: block; }
-.save-btn[aria-pressed="true"] {
+.post-more {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 38%, transparent);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  text-decoration: none;
 }
 
-.save-ico { display: grid; }
-
-.card-meta {
+.post-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
-  min-width: 0;
-  font-size: 12px;
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
+  gap: 2px;
+  margin-top: 10px;
+  padding-top: 4px;
 }
-.card-meta > span:first-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.card-meta .dot { flex: 0 0 auto; }
 
-/* Gia' aperto: si smorza il titolo, non tutta la scheda, cosi' resta
-   leggibile ma non ruba l'attenzione a quello che non hai ancora visto. */
-.card.is-read .card-title { color: var(--text-muted); font-weight: 600; }
-.card.is-read .chip { opacity: .7; }
+.act {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: none;
+  color: var(--text-faint);
+}
+.act svg { width: 20px; height: 20px; }
+.act:active { background: var(--tap); }
+.act[aria-pressed="true"] { color: var(--accent); }
+
+/* Gia' aperto: si smorza la copertina e l'evidenziatore diventa una fascia
+   neutra. Resta leggibile, ma non ruba l'attenzione a cio' che non hai visto. */
+.post.is-read .cover-img { opacity: .5; }
+.post.is-read .hl { background: var(--surface-2); color: var(--text-muted); }
 
 /* -------------------------------------------------------------- archivio */
 
@@ -312,7 +356,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 18px 4px 9px;
+  margin: 22px 4px 10px;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: .02em;
@@ -365,11 +409,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 .pull {
   /* Senza unita': serve sia come numero puro per l'opacita' sia moltiplicato
-     per 1px o 1deg per la trasformazione. Con "0px" la divisione produce un
-     px dove ci vuole un numero, e il browser scarta l'intera dichiarazione. */
+     per 1px o 1deg nella trasformazione. Con "0px" la divisione produce un px
+     dove ci vuole un numero, e il browser scarta l'intera dichiarazione. */
   --pull: 0;
   position: absolute;
-  top: calc(max(env(safe-area-inset-top), 10px) + 92px);
+  /* top lo imposta app.js dall'altezza reale del topbar, che cambia fra Feed
+     e Archivio per via della fila delle categorie. */
+  top: 0;
   left: 50%;
   display: grid;
   place-items: center;

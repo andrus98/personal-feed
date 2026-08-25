@@ -15,6 +15,7 @@ const TABS = [
 const app = {
   tab: 'feed',
   query: '',
+  category: null,
   articles: [],
   names: { categories: new Map(), sources: new Map(), order: [] },
   updatedAt: null,
@@ -91,6 +92,28 @@ function buildTopbar() {
       clearBtn,
     ]),
   );
+  // Il filtro per categoria vale solo nel Feed: nell'Archivio le categorie
+  // sono gia' i titoli dei gruppi, e filtrarle sarebbe dire due volte la
+  // stessa cosa.
+  if (app.tab === 'feed') topbarEl.append(buildCategoryBar());
+}
+
+function buildCategoryBar() {
+  const bar = el('div', { class: 'catbar' });
+
+  const makeChip = (slug, label) => el('button', {
+    class: `cat-chip${app.category === slug ? ' is-active' : ''}`,
+    type: 'button',
+    dataset: slug ? { cat: slug } : {},
+    text: label,
+    onclick: () => setCategory(slug),
+  });
+
+  bar.append(makeChip(null, 'Tutte'));
+  for (const slug of app.names.order) {
+    bar.append(makeChip(slug, app.names.categories.get(slug) ?? slug));
+  }
+  return bar;
 }
 
 function buildTabbar() {
@@ -115,6 +138,9 @@ function buildTabbar() {
 function render() {
   buildTopbar();
   buildTabbar();
+  // Il topbar cambia altezza fra Feed e Archivio, per via della fila delle
+  // categorie: l'indicatore del pull va riallineato o resta a mezz'aria.
+  if (pullEl) pullEl.style.top = `${topbarEl.offsetHeight + 12}px`;
   if (app.tab === 'feed') renderFeed(screenEl, app);
   else renderArchive(screenEl, app);
 }
@@ -124,10 +150,18 @@ app.rerender = render;
 function setTab(id) {
   if (app.tab === id) { screenEl.scrollTo({ top: 0, behavior: 'smooth' }); return; }
   app.tab = id;
-  // La ricerca non si porta dietro fra le due sezioni: cercare "Roma" nel Feed
-  // e ritrovarsi l'Archivio filtrato sarebbe una sorpresa, non una comodita'.
+  // Ricerca e filtro non si portano dietro fra le due sezioni: cercare "Roma"
+  // nel Feed e ritrovarsi l'Archivio filtrato sarebbe una sorpresa, non una
+  // comodita'.
   app.query = '';
+  app.category = null;
   resetPaging();
+  render();
+  screenEl.scrollTop = 0;
+}
+
+function setCategory(slug) {
+  app.category = app.category === slug ? null : slug;
   render();
   screenEl.scrollTop = 0;
 }
