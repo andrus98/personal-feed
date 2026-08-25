@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from ingest import (  # noqa: E402
     archive_path, article_id, build_article, build_index, consolidate_month,
-    day_dir, entry_datetime, entry_full_text, entry_image, html_to_text,
-    load_seen, normalize_link, shard_path, truncate, write_json,
+    day_dir, entry_datetime, entry_full_text, entry_image, heartbeat_is_recent,
+    html_to_text, load_seen, normalize_link, shard_path, truncate, write_json,
 )
 
 NOW = datetime(2026, 8, 24, 22, 0, 0, tzinfo=timezone.utc)
@@ -245,6 +245,20 @@ def test_disco():
         check("updated_at", index["updated_at"], "2026-08-24T22:00:00Z")
     finally:
         shutil.rmtree(tmp)
+
+
+def test_heartbeat():
+    # NOW e' le 22:00: la soglia sono 45 minuti
+    check("nessun index precedente", heartbeat_is_recent({}, NOW), False)
+    check("index None", heartbeat_is_recent(None, NOW), False)
+    check("timestamp assente", heartbeat_is_recent({"updated_at": None}, NOW), False)
+    check("timestamp malformato", heartbeat_is_recent({"updated_at": "ieri"}, NOW), False)
+    check("battito di 30 minuti fa e' recente",
+          heartbeat_is_recent({"updated_at": "2026-08-24T21:30:00Z"}, NOW), True)
+    check("battito di un'ora fa non lo e'",
+          heartbeat_is_recent({"updated_at": "2026-08-24T21:00:00Z"}, NOW), False)
+    check("esattamente alla soglia non lo e'",
+          heartbeat_is_recent({"updated_at": "2026-08-24T21:15:00Z"}, NOW), False)
 
 
 def test_consolidamento():

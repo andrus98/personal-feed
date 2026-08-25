@@ -47,7 +47,7 @@ Tutto vive dentro GitHub: codice, dati, esecuzione schedulata e hosting. Nessun 
 esterno, nessun backend, nessun dominio da pagare. Costo di esercizio: zero.
 
 ```
-┌──────────────────────────────┐   cron ~30'   ┌──────────────────────────────┐
+┌──────────────────────────────┐   cron ~10'   ┌──────────────────────────────┐
 │  GitHub Actions              │──────────────▶│  personal-feed-data          │
 │  (nel repo personal-feed)    │  commit via   │  (repo pubblico, solo JSON)  │
 │  ingest.py + feedparser      │  deploy key   │   data/YYYY/MM/DD/HH.json    │
@@ -121,7 +121,7 @@ esterno, nessun backend, nessun dominio da pagare. Costo di esercizio: zero.
 | Frontend | HTML/CSS/JS vanilla, PWA | Nessun bundler, nessun build step |
 | Hosting | GitHub Pages (repo `personal-feed`) | `andrus98.github.io/personal-feed/`, HTTPS incluso, nessun dominio |
 | Database | File JSON nel repo `personal-feed-data` | Letti dal client via `raw.githubusercontent.com` |
-| Ingestion/ETL | GitHub Actions + Python 3 (`feedparser`) | Sostituisce n8n. Cron ~30', con richieste condizionali. `feedparser` è la libreria più tollerante verso feed sporchi |
+| Ingestion/ETL | GitHub Actions + Python 3 (`feedparser`) | Sostituisce n8n. Cron ogni 10', ma vedi sezione 8: lo scheduler gratuito ne onora circa uno su cinque. `feedparser` è la libreria più tollerante verso feed sporchi |
 | Auth Action → dati | Deploy key SSH (secret `DATA_DEPLOY_KEY`) | Scrittura sul solo repo dati, senza scadenza |
 | Auth browser → dati | PAT fine-grained su `personal-feed-data`, Contents: Read and write | Solo per lo stato letto/salvato. Lo inserisce l'utente, resta in `localStorage` |
 | Ricerca | Client-side sui file mensili scaricati on demand | Sostituisce la full-text search di Postgres |
@@ -209,11 +209,16 @@ Prodotto da un singolo run e **mai riscritto**. Contiene solo gli articoli *nuov
 Il manifesto che il client legge per primo. Piccolo (qualche KB), riscritto a ogni run — è
 l'unico file la cui riscrittura frequente è accettabile proprio perché resta minuscolo.
 
-Conseguenza voluta: c'è un commit sul repo dati a ogni run, anche quando non è arrivato niente
-di nuovo, perché `updated_at` cambia comunque. Serve a due cose: l'app può dire "ultimo
-controllo alle 14:47" invece di lasciarti nel dubbio, e la cronologia dei commit diventa il
-segnale di vita dell'ingestion — se si ferma, si vede subito. Il costo è qualche decina di byte
-per commit.
+Essendo l'unica cosa che cambia in un run a vuoto, `index.json` decide da solo quanti commit
+finiscono nel repo dati. Viene riscritto se sono arrivati articoli nuovi o se c'è stato un
+consolidamento; altrimenti **solo se l'ultimo aggiornamento risale a più di 45 minuti**.
+
+Il compromesso è fra due esigenze opposte. Riscriverlo sempre significherebbe un commit ogni
+dieci minuti anche di notte: la cronologia si riempirebbe di commit identici e smetterebbe di
+dire quando sono arrivate notizie. Non riscriverlo mai a vuoto renderebbe impossibile
+distinguere "non è successo niente" da "l'ingestion è morta tre giorni fa". Il battito ogni
+tre quarti d'ora tiene entrambe: i commit tornano a significare "notizie", e l'app può
+comunque dire "ultimo controllo alle 14:47".
 
 ```json
 {
@@ -414,7 +419,7 @@ eventuale XSS di spedirlo altrove.
 
 Workflow `.github/workflows/ingest.yml` nel repo `personal-feed`.
 
-1. **Trigger**: `schedule` con cron ogni 30 minuti, più `workflow_dispatch` per lanciarlo a mano.
+1. **Trigger**: `schedule` con cron ogni 10 minuti, più `workflow_dispatch` per lanciarlo a mano.
 2. **Checkout**: il repo del codice (per `ingest/ingest.py` e `sources.json`) e il repo dati in
    shallow (`fetch-depth: 1`), quest'ultimo autenticato con la deploy key.
 3. **Lettura fonti**: `sources.json`, filtrando `active: true`.
@@ -427,8 +432,9 @@ Workflow `.github/workflows/ingest.yml` nel repo `personal-feed`.
 6. **Deduplica**: normalizzazione del link, hash, confronto con l'insieme degli id degli ultimi
    30 giorni ricostruito dagli shard.
 7. **Scrittura**: nuovo shard `data/YYYY/MM/DD/HH.json` con i soli articoli nuovi, eventuali file
-   sotto `data/full/`, aggiornamento di `index.json`, commit e push con la deploy key. Se non ci
-   sono articoli nuovi, nessun commit.
+   sotto `data/full/`, aggiornamento di `index.json` alle condizioni della sezione 4, commit e
+   push con la deploy key. Un run che non trova nulla e ha lasciato un battito da meno di 45
+   minuti non produce alcun commit.
 8. **Consolidamento mensile**: al primo run del mese, gli shard del mese precedente vengono
    uniti in `data/YYYY/YYYY-MM.json` e cancellati.
 
@@ -451,9 +457,16 @@ finestra.
 
 ### Due caveat operativi di GitHub Actions
 
-- **Il cron non è puntuale.** Sui runner gratuiti la partenza può slittare di 5-30 minuti, a
-  volte di più nelle ore di picco. Per un aggregatore di notizie è irrilevante, ma non va
-  interpretato come un guasto.
+- **Lo scheduler gratuito salta la maggior parte degli slot.** Non è "slitta di qualche minuto":
+  misurato sulle prime otto ore di esercizio, con cron a 30 minuti, GitHub ha onorato **3 slot
+  su 15**, con buchi fino a 3h32m. È comportamento dichiarato — sui repo pubblici lo scheduler è
+  *best effort* e viene deprioritizzato sotto carico — e non si aggira con la configurazione:
+  i minuti erano già sfalsati dagli scatti tondi proprio per evitare le code.
+  La contromisura è statistica: **sei occasioni all'ora invece di due**, così anche onorandone
+  una su cinque resta un run ogni 45-60 minuti. Costa nulla (minuti illimitati sui repo
+  pubblici), non pesa sugli editori (richieste condizionali) e non sporca il repo dati (un run
+  a vuoto non produce commit). Il rimedio vero per avere notizie *adesso* resta il refresh a
+  chiamata dall'app, vedi sezione 10.
 - **I workflow schedulati vengono disattivati dopo 60 giorni di inattività del repo.** GitHub
   manda una mail e si riabilitano con un click. Va saputo prima, invece di scoprirlo con il feed
   fermo da due settimane.

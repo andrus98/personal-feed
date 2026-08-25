@@ -32,6 +32,7 @@ SUMMARY_LIMIT = 600         # caratteri, poi si tronca a fine parola
 SEEN_DAYS = 30              # finestra di deduplica
 RECENT_DAYS = 3             # giorni di shard elencati in index.json
 FULL_MIN_CHARS = 1000       # sotto questa soglia il content non e' un full-text
+HEARTBEAT_MINUTES = 45      # ogni quanto index.json si aggiorna anche a vuoto
 
 # Parametri di tracciamento da togliere prima di calcolare l'id: lo stesso
 # articolo ripreso con una utm diversa deve restare lo stesso articolo.
@@ -302,6 +303,22 @@ def consolidate_month(data_dir, year, month):
     return target
 
 
+def heartbeat_is_recent(index, now, minutes=HEARTBEAT_MINUTES):
+    """Da quanto index.json non viene toccato.
+
+    Serve a distinguere "non e' arrivato niente" da "l'ingestion e' morta"
+    senza committare un file identico a ogni run.
+    """
+    stamp = (index or {}).get("updated_at")
+    if not stamp:
+        return False
+    try:
+        last = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return False
+    return now - last < timedelta(minutes=minutes)
+
+
 def build_index(data_dir, now):
     root = data_root(data_dir)
     recent = []
@@ -486,15 +503,26 @@ def run(args):
         print("nessun articolo nuovo: nessuno shard scritto.")
 
     # consolidamento del mese precedente, al primo run del mese nuovo
-    previous = (now.replace(day=1) - timedelta(days=1))
+    previous_month = (now.replace(day=1) - timedelta(days=1))
+    consolidated = False
     if now.day == 1 or args.consolidate:
-        target = consolidate_month(args.data_dir, previous.year, previous.month)
+        target = consolidate_month(args.data_dir, previous_month.year, previous_month.month)
         if target:
+            consolidated = True
             print("consolidato %s" % rel_path(args.data_dir, target))
 
+    # index.json e' l'unico file che si riscrive, ed e' anche l'unica cosa che
+    # cambia in un run a vuoto. Con un cron fitto, riscriverlo sempre
+    # riempirebbe la cronologia del repo dati di commit identici, e i commit
+    # smetterebbero di dire quando sono arrivate notizie. Si aggiorna quindi
+    # solo se c'e' qualcosa di nuovo, o se e' passato abbastanza tempo perche'
+    # valga la pena lasciare un battito che distingua "silenzio" da "morto".
     index_path = os.path.join(data_root(args.data_dir), "index.json")
-    write_json(index_path, build_index(args.data_dir, now))
-    print("aggiornato data/index.json")
+    if fresh or consolidated or not heartbeat_is_recent(read_json(index_path, {}), now):
+        write_json(index_path, build_index(args.data_dir, now))
+        print("aggiornato data/index.json")
+    else:
+        print("niente di nuovo e battito recente: index.json invariato, nessun commit")
 
     # I validatori si salvano solo adesso, a scrittura avvenuta: se il run
     # fosse morto prima, al giro successivo un 304 ci farebbe perdere per

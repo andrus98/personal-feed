@@ -2,11 +2,12 @@ name: Ingestion RSS
 
 on:
   schedule:
-    # Ogni 30 minuti, e non a :00 o :30: i runner gratuiti sono piu' congestionati
-    # sugli scatti tondi e lo slittamento del cron peggiora. Resta approssimativo.
-    # La frequenza e' sostenibile per gli editori grazie alle richieste
-    # condizionali: un feed immutato risponde 304 e non spedisce nulla.
-    - cron: "17,47 * * * *"
+    # Ogni 10 minuti, sfalsati dagli scatti tondi. Non e' avidita': misurato
+    # sulle prime otto ore, lo scheduler gratuito ha onorato 3 slot su 15. Con
+    # sei occasioni all'ora ne resta comunque una ogni 45-60 minuti.
+    # Sostenibile per gli editori grazie alle richieste condizionali, e per il
+    # repo dati perche' un run a vuoto non produce piu' alcun commit.
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
 
 # Il GITHUB_TOKEN non deve scrivere niente: sul repo dati si scrive con la
