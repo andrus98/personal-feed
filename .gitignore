@@ -12,3 +12,6 @@ venv/
 # Ambiente locale
 .env
 *.local
+
+# Config locale dell editor
+.claude/

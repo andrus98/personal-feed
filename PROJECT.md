@@ -381,7 +381,8 @@ da verificare manualmente sul sito · ❌ scartato, con motivo.
 2. **Filtro per categoria**: tab o dropdown per vedere solo una categoria alla volta.
 3. **Pull/pulsante di refresh**: rilegge `index.json` e gli shard nuovi (non triggera l'Action).
 4. **Ricerca**: su titolo e summary, su tutto lo storico archiviato.
-5. **Segna come letto**: automatico all'apertura o manuale (da decidere in UI).
+5. **Segna come letto**: automatico all'apertura dell'articolo. In UI si smorza il titolo, non
+   l'intera scheda: resta leggibile ma non ruba l'attenzione a ciò che non hai ancora visto.
 6. **Salva articolo**: toggle salvataggio, con vista dedicata "Salvati".
 7. **Gestione fonti**: almeno una vista/tabella per vedere le fonti attive (leggendo
    `sources.json` — la modifica resta un commit al repo in v1).
@@ -503,8 +504,9 @@ storico (tutto, consolidato per mese), protezione (nessuna, dati pubblici).
 
 Restano aperte:
 
-- Se "segna come letto" è automatico all'apertura dell'articolo o manuale
-- Se serve un'icona/branding minimo per la PWA o va bene un placeholder iniziale
+- **Lo stato utente è ancora solo locale.** Salvati e letti vivono in `localStorage` di questo
+  dispositivo, nel formato che `state.json` avrà: aggiungere la sincronizzazione (fase 7) non
+  imporrà di migrare nulla, ma finché non c'è, iPhone e desktop hanno archivi separati
 - Meccanismo tecnico esatto per il tap-through (WebView in-app vs browser esterno) — da decidere
   in fase di sviluppo frontend
 - Per ForzaRoma.info e Giallorossi.net: se mostrare il contenuto di `data/full/` direttamente

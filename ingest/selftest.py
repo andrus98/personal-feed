@@ -20,7 +20,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ingest import (  # noqa: E402
     archive_path, article_id, build_article, build_index, consolidate_month,
     day_dir, entry_datetime, entry_full_text, entry_image, heartbeat_is_recent,
-    html_to_text, load_seen, normalize_link, shard_path, truncate, write_json,
+    html_to_text, load_seen, normalize_link, shard_path, strip_boilerplate,
+    truncate, write_json,
 )
 
 NOW = datetime(2026, 8, 24, 22, 0, 0, tzinfo=timezone.utc)
@@ -113,6 +114,25 @@ def test_truncate():
 # --------------------------------------------------------------------------
 # estrazione dagli item
 # --------------------------------------------------------------------------
+
+def test_strip_boilerplate():
+    check("coda WordPress italiana",
+          strip_boilerplate("Estratto vero. L'articolo Tizio proviene da Giallorossi.net ."),
+          "Estratto vero.")
+    check("con apostrofo tipografico",
+          strip_boilerplate("Estratto vero. L’articolo Tizio proviene da ForzaRoma.info ."),
+          "Estratto vero.")
+    check("coda WordPress inglese",
+          strip_boilerplate("Real excerpt. The post Something appeared first on TechCrunch."),
+          "Real excerpt.")
+    check("estratto normale intatto",
+          strip_boilerplate("Il ministro ha detto che l'articolo di legge cambia."),
+          "Il ministro ha detto che l'articolo di legge cambia.")
+    check("troncatura del feed normalizzata",
+          strip_boilerplate("Comincia la storia e poi […]"), "Comincia la storia e poi…")
+    check("vuoto", strip_boilerplate(""), "")
+    check("None", strip_boilerplate(None), "")
+
 
 def test_entry_datetime():
     check("published_parsed",

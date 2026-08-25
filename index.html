@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: senza, env(safe-area-inset-*) resta a zero e la tab
+     bar finisce sotto la barra home dell'iPhone. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- img-src apre a https: perche' le anteprime arrivano dai server delle
+     testate, che sono decine e cambiano. Gli script restano 'self'. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self' https://raw.githubusercontent.com; img-src 'self' https: data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#faf9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Feed">
+<title>Personal Feed</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<!-- iOS non prende l'icona dal manifest: la vuole qui. -->
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar" id="topbar"></header>
+    <main class="screen" id="screen">
+      <div class="empty">Avvio…</div>
+    </main>
+    <nav class="tabbar" id="tabbar"></nav>
+  </div>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

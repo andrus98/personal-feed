@@ -98,6 +98,24 @@ def html_to_text(raw, keep_breaks=False):
     return text.strip()
 
 
+# Coda che i feed WordPress appendono a ogni estratto. Non e' contesto: ripete
+# il titolo che in UI sta gia' due righe sopra, e si mangia l'anteprima.
+BOILERPLATE_RE = re.compile(
+    r"\s*(?:L['’]articolo\s.+?\sproviene\sda\s.+"
+    r"|The\spost\s.+?\sappeared\sfirst\son\s.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def strip_boilerplate(text):
+    text = BOILERPLATE_RE.sub("", text or "").strip()
+    # I feed troncati chiudono con "[…]": diventa il nostro stesso ellissi,
+    # cosi' l'anteprima finisce in un modo solo invece che in due.
+    if text.endswith("[…]") or text.endswith("[...]"):
+        text = text[: text.rindex("[")].rstrip() + "…"
+    return text
+
+
 def truncate(text, limit=SUMMARY_LIMIT):
     if len(text) <= limit:
         return text
@@ -196,7 +214,7 @@ def build_article(entry, source, now):
     if not title:
         return None, None
 
-    summary = truncate(html_to_text(entry.get("summary") or ""))
+    summary = truncate(strip_boilerplate(html_to_text(entry.get("summary") or "")))
     published = entry_datetime(entry)
     # un articolo datato nel futuro sballerebbe l'ordinamento della home
     if published and published > now + timedelta(hours=12):
