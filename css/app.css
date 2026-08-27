@@ -475,6 +475,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
   pointer-events: none;
   z-index: 2;
 }
+/* L'icona sta dentro uno <span>, e uno <span> senza display grid resta una
+   riga di testo: l'SVG ci si appoggia come una lettera, sulla linea di base,
+   con lo spazio della discendente sotto. Risultato, la freccia stava 2,5px piu'
+   in alto del centro del cerchio - orizzontalmente perfetta, verticalmente no,
+   che e' la firma di questo difetto. Le altre icone dell'app (.search-ico,
+   .meta-ico, .act, .icon-btn) hanno tutte display grid: qui era stato
+   dimenticato. */
+.pull-ico { display: grid; }
 .pull svg { width: 17px; height: 17px; }
 .pull.ready { color: var(--accent); border-color: var(--accent); }
 
