@@ -2,22 +2,31 @@ name: Ingestion RSS
 
 on:
   schedule:
-    # Ogni 10 minuti, sfalsati dagli scatti tondi. Non e' avidita': misurato
-    # sulle prime otto ore, lo scheduler gratuito ha onorato 3 slot su 15. Con
-    # sei occasioni all'ora ne resta comunque una ogni 45-60 minuti.
-    # Sostenibile per gli editori grazie alle richieste condizionali, e per il
-    # repo dati perche' un run a vuoto non produce piu' alcun commit.
+    # Tre volte l'ora, sfalsate dagli scatti tondi. Non e' modestia, e' la
+    # misura: con sei occasioni all'ora lo scheduler gratuito ne onorava una su
+    # dieci, cioe' un run ogni ora e tre quarti. La frequenza alta non comprava
+    # niente, e metteva il repo fra quelli che sotto carico hanno piu' ragioni
+    # di essere sacrificati.
     #
-    # 27/08: lo schedule si e' fermato per diciotto ore. Non un fallimento -
-    # nessun run innescato affatto, workflow "active", ventidue run su ventidue
-    # verdi. Era cominciato con l'incidente Actions del 26 (15:02-17:40 UTC,
-    # failover del primary del database), ma non e' ripartito da solo quando
-    # l'incidente era chiuso da nove ore. Gli eventi schedule persi non vengono
-    # rigiocati, e la registrazione del cron si ri-arma solo con un push sul
-    # branch di default: questo commento e' quel push.
-    # Se il feed si fermasse di nuovo, il primo controllo e' il numero di run
-    # innescati: zero significa GitHub, non l'ingestion.
-    - cron: "3,13,23,33,43,53 * * * *"
+    # La storia, perche' ricostruirla costa caro. Il 26/08 alle 14:25 UTC lo
+    # schedule si e' fermato: non un run fallito, nessun run innescato affatto,
+    # workflow "active", ventitre su ventitre verdi. Era cominciato con
+    # l'incidente Actions del 26 (15:02-17:40 UTC, failover del primary del
+    # database), ma non e' ripartito quando l'incidente era chiuso da nove ore,
+    # e gli eventi schedule persi non vengono rigiocati. Tre push sul branch di
+    # default non hanno ri-armato niente - e Actions li aveva visti tutti e tre,
+    # perche' ognuno ha acceso il deploy di Pages: ventitre ore dopo, ancora
+    # zero run da schedule.
+    #
+    # Per questo il file si chiama ingestion.yml e non piu' ingest.yml: un file
+    # nuovo e' un workflow nuovo per GitHub, quindi una registrazione dello
+    # schedule nuova. E' l'ipotesi rimasta, e questo file e' l'esperimento.
+    #
+    # Se il feed si ferma di nuovo, il primo numero da guardare e' quanti run
+    # sono stati innescati: zero significa GitHub, non l'ingestion. E se non
+    # riparte piu' da solo, dentro Actions non resta niente di affidabile:
+    # servirebbe un trigger esterno che chiami repository_dispatch.
+    - cron: "7,27,47 * * * *"
   workflow_dispatch:
 
 # Il GITHUB_TOKEN non deve scrivere niente: sul repo dati si scrive con la
