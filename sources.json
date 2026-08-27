@@ -11,12 +11,21 @@
 
   "sources": [
     {
-      "id": "mw-bulletins",
-      "name": "MarketWatch – Bulletins",
-      "feed_url": "https://feeds.content.dowjones.io/public/rss/mw_bulletins",
+      "id": "cnbc-finance",
+      "name": "CNBC – Finance",
+      "feed_url": "https://www.cnbc.com/id/10000664/device/rss/rss.html",
       "category": "finanza",
       "active": true,
-      "note": "description sempre vuota nel feed: in UI si mostra il solo titolo."
+      "note": "Non manda ne' ETag ne' Last-Modified: le richieste condizionali qui non risparmiano nulla."
+    },
+    {
+      "id": "bbc-business",
+      "name": "BBC News – Business",
+      "feed_url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+      "category": "economia-business",
+      "active": true,
+      "skip_url_contains": ["/videos/", "/sounds/"],
+      "note": "Nello stesso feed mette video (/news/videos/) e programmi radio (/sounds/): filtrati, non sono articoli. I link portano at_medium/at_campaign, che normalize_link toglie gia' per l'id. Niente ETag ne' Last-Modified."
     },
     {
       "id": "sole-economia",
