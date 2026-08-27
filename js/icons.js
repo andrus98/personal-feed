@@ -15,7 +15,17 @@ export const ICON = {
   bookmark: wrap('<path d="M6.5 4h11a.5.5 0 0 1 .5.5v15.2a.3.3 0 0 1-.46.26L12 16.4l-5.54 3.56A.3.3 0 0 1 6 19.7V4.5a.5.5 0 0 1 .5-.5z"/>'),
   bookmarkFilled: wrap('<path d="M6.5 4h11a.5.5 0 0 1 .5.5v15.2a.3.3 0 0 1-.46.26L12 16.4l-5.54 3.56A.3.3 0 0 1 6 19.7V4.5a.5.5 0 0 1 .5-.5z" fill="currentColor"/>'),
 
-  refresh: wrap('<path d="M20 11a8 8 0 1 0-.6 4"/><path d="M20 4.5V11h-6.2"/>'),
+  // Anello centrato esatto su (12,12) con raggio 8, e la punta appoggiata
+  // dov'e' finito l'arco. I numeri non sono arrotondati a occhio: (12,4) e
+  // (16.8,5.6) distano entrambi 8 dal centro - 4.8/6.4/8 e' una terna
+  // pitagorica - quindi l'arco non ha bisogno di essere riadattato dal browser
+  // e il centro non scivola. Conta perche' e' questa l'icona che gira: se il
+  // centro dell'anello non coincide con quello del riquadro, la rotazione
+  // traballa invece di girare sul posto.
+  // La versione precedente aveva la punta come barra da 6.2 unita' che
+  // arrivava fin quasi al centro: il riquadro risultava centrato, ma tutto quel
+  // peso d'inchiostro a destra si leggeva storto.
+  refresh: wrap('<path d="M12 4a8 8 0 1 0 4.8 1.6"/><path d="M19.6 5.6H16.8V8.4"/>'),
 
   search: wrap('<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>'),
 
