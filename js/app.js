@@ -1,6 +1,6 @@
 // Guscio dell'app: barra in alto con ricerca, due schermate, tab bar in basso.
 
-import { el, clear, toast, humanError, relativeTime } from './ui.js';
+import { el, clear, toast, humanError, staleness } from './ui.js';
 import { ICON } from './icons.js';
 import { loadSources, loadFeed, readWarmCache } from './data.js';
 import { renderFeed, resetPaging } from './screen-feed.js';
@@ -33,15 +33,37 @@ let pullEl = null;
 // guscio
 // --------------------------------------------------------------------------
 
+/**
+ * Il timbro dell'ultimo aggiornamento. Non e' decorazione: l'ingestion vive su
+ * uno scheduler che puo' sparire per ore, e questa e' l'unica riga dell'app che
+ * distingue "nessuna notizia" da "la catena e' rotta".
+ */
+function buildStamp() {
+  const stale = staleness(app.updatedAt);
+  return el('span', {
+    class: `stamp${stale.level === 'late' || stale.level === 'stalled' ? ` is-${stale.level}` : ''}`,
+    text: stale.label,
+    title: stale.detail || null,
+    'aria-label': stale.detail || null,
+  });
+}
+
+/**
+ * Il timbro invecchia da fermo: l'app resta aperta sul comodino e "agg. 5 min
+ * fa" diventa falso senza che nessuno abbia toccato niente. Al rientro in
+ * primo piano lo ricalcoliamo, senza rete: cosi' la soglia scatta anche su una
+ * schermata che non si e' mai ridisegnata.
+ */
+function updateStamp() {
+  topbarEl.querySelector('.stamp')?.replaceWith(buildStamp());
+}
+
 function buildTopbar() {
   // Il marchio resta sempre lo stesso, come in qualunque app: a dire in quale
   // sezione sei ci pensano la tab bar accesa e il testo del campo di ricerca.
   const title = el('h1', { class: 'brand', text: 'Feed' });
 
-  const stamp = el('span', {
-    class: 'stamp',
-    text: app.updatedAt ? `agg. ${relativeTime(app.updatedAt)}` : '',
-  });
+  const stamp = buildStamp();
 
   const refreshBtn = el('button', {
     class: 'icon-btn',
@@ -271,6 +293,9 @@ async function boot() {
 
   render();
   setupPullToRefresh();
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) updateStamp();
+  });
   subscribe(() => {
     // Il conteggio dei salvati vive nella tab bar: va ridisegnata a ogni
     // salvataggio, anche quando avviene dall'altra schermata.

@@ -17,6 +17,9 @@
   --border: #1f2227;
   --border-strong: #2e323a;
   --accent: #f0863f;
+  /* Rosso da testo, non da fondino: il #b3261e del toast sul nero pieno si
+     legge appena. */
+  --alarm: #ff6b60;
   --shadow: none;
 
   /* Evidenziatore del titolo: fascia bianca, testo nero. E' la firma visiva
@@ -109,6 +112,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
 
 .stamp { font-size: 12px; color: var(--text-faint); }
+
+/* Quanto e' vecchio il feed. In grigio e' un dettaglio che non chiede niente;
+   quando l'ingestion perde il passo il colore lo dice prima del testo, perche'
+   e' l'unico posto dell'app dove si vede che la catena e' rotta. */
+.stamp.is-late { color: var(--accent); }
+.stamp.is-stalled { color: var(--alarm); font-weight: 600; }
 
 .icon-btn {
   display: grid;

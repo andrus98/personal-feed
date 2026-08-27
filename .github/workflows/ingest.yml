@@ -7,6 +7,16 @@ on:
     # sei occasioni all'ora ne resta comunque una ogni 45-60 minuti.
     # Sostenibile per gli editori grazie alle richieste condizionali, e per il
     # repo dati perche' un run a vuoto non produce piu' alcun commit.
+    #
+    # 27/08: lo schedule si e' fermato per diciotto ore. Non un fallimento -
+    # nessun run innescato affatto, workflow "active", ventidue run su ventidue
+    # verdi. Era cominciato con l'incidente Actions del 26 (15:02-17:40 UTC,
+    # failover del primary del database), ma non e' ripartito da solo quando
+    # l'incidente era chiuso da nove ore. Gli eventi schedule persi non vengono
+    # rigiocati, e la registrazione del cron si ri-arma solo con un push sul
+    # branch di default: questo commento e' quel push.
+    # Se il feed si fermasse di nuovo, il primo controllo e' il numero di run
+    # innescati: zero significa GitHub, non l'ingestion.
     - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
 
