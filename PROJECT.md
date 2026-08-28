@@ -43,16 +43,27 @@ che ridefinisce cosa significa "leggere l'articolo nell'app":
 
 ## 2. Architettura
 
-Tutto vive dentro GitHub: codice, dati, esecuzione schedulata e hosting. Nessun servizio
-esterno, nessun backend, nessun dominio da pagare. Costo di esercizio: zero.
+Dentro GitHub vivono codice, dati, esecuzione e hosting. Fuori è rimasto solo l'orologio: dal
+26 agosto 2026 lo scheduler di GitHub non consegna più eventi `schedule` a questo account, e a
+dare l'orario è un Worker di Cloudflare sul piano gratuito, che chiama `workflow_dispatch`. Il
+lavoro non si è spostato di un millimetro — perché e con quali prove, sezione 8. Nessun
+backend, nessun dominio da pagare. Costo di esercizio: zero.
 
 ```
-┌──────────────────────────────┐   cron ~10'   ┌──────────────────────────────┐
-│  GitHub Actions              │──────────────▶│  personal-feed-data          │
-│  (nel repo personal-feed)    │  commit via   │  (repo pubblico, solo JSON)  │
-│  ingest.py + feedparser      │  deploy key   │   data/YYYY/MM/DD/HH.json    │
-│  legge sources.json          │  SSH          │   data/YYYY/YYYY-MM.json     │
-└──────────────────────────────┘               │   data/index.json            │
+┌──────────────────────────────┐   ogni 20'    ┌──────────────────────────────┐
+│  Cloudflare Worker           │──────────────▶│  GitHub Actions              │
+│  feed-ingest-cron            │  workflow_    │  (nel repo personal-feed)    │
+│  solo l'orario               │  dispatch     │  ingest.py + feedparser      │
+│  token fine-grained          │  via API      │  legge sources.json          │
+└──────────────────────────────┘               └───────────────┬──────────────┘
+                                                               │  commit via
+                                                               │  deploy key SSH
+                                               ┌───────────────▼──────────────┐
+                                               │  personal-feed-data          │
+                                               │  (repo pubblico, solo JSON)  │
+                                               │   data/YYYY/MM/DD/HH.json    │
+                                               │   data/YYYY/YYYY-MM.json     │
+                                               │   data/index.json            │
                                                │   state.json                 │
                                                └───────────────┬──────────────┘
                                                                │
@@ -121,7 +132,9 @@ esterno, nessun backend, nessun dominio da pagare. Costo di esercizio: zero.
 | Frontend | HTML/CSS/JS vanilla, PWA | Nessun bundler, nessun build step |
 | Hosting | GitHub Pages (repo `personal-feed`) | `andrus98.github.io/personal-feed/`, HTTPS incluso, nessun dominio |
 | Database | File JSON nel repo `personal-feed-data` | Letti dal client via `raw.githubusercontent.com` |
-| Ingestion/ETL | GitHub Actions + Python 3 (`feedparser`) | Sostituisce n8n. Cron ogni 10', ma vedi sezione 8: lo scheduler gratuito ne onora circa uno su cinque. `feedparser` è la libreria più tollerante verso feed sporchi |
+| Ingestion/ETL | GitHub Actions + Python 3 (`feedparser`) | Sostituisce n8n. `feedparser` è la libreria più tollerante verso feed sporchi |
+| Orario dell'ingestion | Cloudflare Worker `feed-ingest-cron`, cron ogni 20' | Chiama `workflow_dispatch` via API. Sostituisce `on: schedule`, che dal 26/08/2026 non viene più consegnato a questo account — sezione 8 |
+| Auth Worker → Actions | PAT fine-grained su `personal-feed`, **solo** `Actions: Read and write` | Secret `GH_TOKEN` nel Worker. Non può toccare il codice né il repo dati. **Scade il 28/08/2027**: quel giorno il feed si ferma in silenzio, e a dirlo sarà solo il timbro in alto nell'app |
 | Auth Action → dati | Deploy key SSH (secret `DATA_DEPLOY_KEY`) | Scrittura sul solo repo dati, senza scadenza |
 | Auth browser → dati | PAT fine-grained su `personal-feed-data`, Contents: Read and write | Solo per lo stato letto/salvato. Lo inserisce l'utente, resta in `localStorage` |
 | Ricerca | Client-side sui file mensili scaricati on demand | Sostituisce la full-text search di Postgres |
@@ -394,7 +407,8 @@ da verificare manualmente sul sito · ❌ scartato, con motivo.
 - **Performance**: la home carica solo gli shard recenti elencati in `index.json`, mai
   l'archivio intero. Paginazione/infinite scroll obbligatori.
 - **Costi**: zero. GitHub Pages e Actions sono gratuiti e senza limite di minuti sui repo
-  pubblici; nessun dominio, nessun servizio a pagamento.
+  pubblici; nessun dominio, nessun servizio a pagamento. Il Worker che dà l'orario sta nel
+  piano gratuito di Cloudflare: 100.000 richieste al giorno incluse, noi ne consumiamo 72.
 - **Tempo di run dell'ingestion**: sotto il minuto, grazie al checkout shallow+sparse.
 
 ## 7. Protezione dell'accesso
@@ -456,21 +470,39 @@ tutto e la ricostruisce da sé. Vengono salvati solo **dopo** che lo shard è st
 run morisse a metà, un `304` al giro dopo farebbe perdere per sempre gli articoli di quella
 finestra.
 
-### Due caveat operativi di GitHub Actions
+### Lo scheduler di Actions, e perché l'orario è finito su Cloudflare
 
-- **Lo scheduler gratuito salta la maggior parte degli slot.** Non è "slitta di qualche minuto":
-  misurato sulle prime otto ore di esercizio, con cron a 30 minuti, GitHub ha onorato **3 slot
-  su 15**, con buchi fino a 3h32m. È comportamento dichiarato — sui repo pubblici lo scheduler è
-  *best effort* e viene deprioritizzato sotto carico — e non si aggira con la configurazione:
-  i minuti erano già sfalsati dagli scatti tondi proprio per evitare le code.
-  La contromisura è statistica: **sei occasioni all'ora invece di due**, così anche onorandone
-  una su cinque resta un run ogni 45-60 minuti. Costa nulla (minuti illimitati sui repo
-  pubblici), non pesa sugli editori (richieste condizionali) e non sporca il repo dati (un run
-  a vuoto non produce commit). Il rimedio vero per avere notizie *adesso* resta il refresh a
-  chiamata dall'app, vedi sezione 10.
+- **Prima saltava la maggior parte degli slot.** Non "slitta di qualche minuto": misurato sulle
+  prime otto ore di esercizio, con cron a 30 minuti, GitHub ha onorato **3 slot su 15**, con
+  buchi fino a 3h32m. È comportamento dichiarato — sui repo pubblici lo scheduler è *best
+  effort* e viene deprioritizzato sotto carico. La contromisura era statistica: sei occasioni
+  all'ora invece di due.
+- **Poi ha smesso del tutto.** Il **26/08/2026 alle 14:25 UTC** è arrivato l'ultimo run da
+  `schedule`, e non ne è più arrivato nessuno. Non un run fallito: nessun run *creato*, con il
+  workflow `active`, il file su `main` e ventitré run su ventitré verdi. Cos'è stato escluso,
+  con dati dell'API e non a intuito: cambiare il cron (sei volte l'ora → tre, su minuti non
+  affollati); rinominare il file, che per GitHub crea un workflow nuovo con una registrazione
+  dello schedule nuova; e infine una **sonda in `personal-feed-data`** — repo che non aveva mai
+  contenuto un workflow — con `*/10` e un solo `echo`: zero run in oltre cento slot. Nel
+  frattempo `workflow_dispatch` partiva in pochi secondi e i deploy di Pages su push
+  funzionavano. Non è configurazione: è la consegna degli eventi. Il ticket 4708603 al supporto
+  è stato chiuso da un assistente virtuale, perché il piano gratuito non include il supporto
+  umano; la discussione pubblica `community/discussions/206019` raccoglie altri utenti colpiti
+  dalla stessa data, chi con zero run e chi con ritardi da 3 a 10 ore.
+- **Quindi l'orario sta fuori.** Un Worker di Cloudflare (`feed-ingest-cron`, piano gratuito)
+  chiama `workflow_dispatch` ogni 20 minuti, con un PAT fine-grained ristretto a questo solo
+  repository e al solo permesso `Actions: Read and write` — non può toccare il codice né il repo
+  dati. Vale la pena dirlo esplicito per chi legge fra sei mesi: **non riportare l'orario dentro
+  Actions per semplificare**, a meno di aver prima verificato che
+  `GET /actions/runs?event=schedule` sulla sonda sia tornato a crescere.
+  Il blocco `on: schedule` resta nel workflow proprio come canarino: se un giorno ricomincia a
+  scattare lo si vede dai run con `event=schedule`, e `concurrency` impedisce che i due percorsi
+  si accavallino.
 - **I workflow schedulati vengono disattivati dopo 60 giorni di inattività del repo.** GitHub
-  manda una mail e si riabilitano con un click. Va saputo prima, invece di scoprirlo con il feed
-  fermo da due settimane.
+  manda una mail e si riabilitano con un click. Non è quello che è successo qui — i repo sono
+  nati il 24/08/2026 e ricevono push ogni giorno, e l'API riporta `state: active` e non
+  `disabled_inactivity` — ma va saputo prima, invece di scoprirlo con il feed fermo da due
+  settimane.
 
 ---
 

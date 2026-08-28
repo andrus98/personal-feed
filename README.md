@@ -7,8 +7,11 @@ categoria, con storico ricercabile e articoli salvati. Sul dispositivo si chiama
 **App:** <https://andrus98.github.io/personal-feed/>
 
 Tutto vive su GitHub: il codice e l'hosting qui, gli articoli nel repo dati
-`personal-feed-data`, l'ingestion su GitHub Actions. Nessun servizio esterno,
-nessun dominio, costo zero.
+`personal-feed-data`, l'ingestion su GitHub Actions. Fuori è rimasto solo
+l'orologio: dal 26 agosto 2026 GitHub non consegna più gli eventi `schedule` a
+questo account, così a svegliare l'ingestion ogni 20 minuti è un Worker di
+Cloudflare che chiama `workflow_dispatch`. Nessun dominio, costo zero — la
+storia per intero è in [PROJECT.md](PROJECT.md), sezione 8.
 
 Architettura, modello dati e fasi di sviluppo: **[PROJECT.md](PROJECT.md)**.
 
