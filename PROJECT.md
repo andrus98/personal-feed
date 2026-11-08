@@ -43,21 +43,22 @@ che ridefinisce cosa significa "leggere l'articolo nell'app":
 
 ## 2. Architettura
 
-Dentro GitHub vivono codice, dati, esecuzione e hosting. Fuori è rimasto solo l'orologio: dal
-26 agosto 2026 lo scheduler di GitHub non consegna più eventi `schedule` a questo account, e a
-dare l'orario è un Worker di Cloudflare sul piano gratuito, che chiama `workflow_dispatch`. Il
-lavoro non si è spostato di un millimetro — perché e con quali prove, sezione 8. Nessun
-backend, nessun dominio da pagare. Costo di esercizio: zero.
+Dentro GitHub vivono codice, dati, esecuzione e hosting. Fuori è rimasto solo l'orologio: un
+Worker di Cloudflare sul piano gratuito chiama `workflow_dispatch` ogni 20 minuti, perché lo
+scheduler di GitHub prima ha smesso di consegnare gli eventi `schedule` e poi ha spento il
+workflow per inattività del repo. L'ingestion gira dentro `personal-feed-data`, il repo che
+scrive: perché e con quali prove, sezione 8. Nessun backend, nessun dominio da pagare. Costo di
+esercizio: zero.
 
 ```
 ┌──────────────────────────────┐   ogni 20'    ┌──────────────────────────────┐
 │  Cloudflare Worker           │──────────────▶│  GitHub Actions              │
-│  feed-ingest-cron            │  workflow_    │  (nel repo personal-feed)    │
-│  solo l'orario               │  dispatch     │  ingest.py + feedparser      │
-│  token fine-grained          │  via API      │  legge sources.json          │
+│  feed-ingest-cron            │  workflow_    │  (in personal-feed-data)     │
+│  l'orario, e riaccende       │  dispatch     │  ingest.py + feedparser      │
+│  il workflow se spento       │  via API      │  codice da personal-feed     │
 └──────────────────────────────┘               └───────────────┬──────────────┘
-                                                               │  commit via
-                                                               │  deploy key SSH
+                                                               │  commit con il
+                                                               │  GITHUB_TOKEN
                                                ┌───────────────▼──────────────┐
                                                │  personal-feed-data          │
                                                │  (repo pubblico, solo JSON)  │
@@ -132,10 +133,10 @@ backend, nessun dominio da pagare. Costo di esercizio: zero.
 | Frontend | HTML/CSS/JS vanilla, PWA | Nessun bundler, nessun build step |
 | Hosting | GitHub Pages (repo `personal-feed`) | `andrus98.github.io/personal-feed/`, HTTPS incluso, nessun dominio |
 | Database | File JSON nel repo `personal-feed-data` | Letti dal client via `raw.githubusercontent.com` |
-| Ingestion/ETL | GitHub Actions + Python 3 (`feedparser`) | Sostituisce n8n. `feedparser` è la libreria più tollerante verso feed sporchi |
-| Orario dell'ingestion | Cloudflare Worker `feed-ingest-cron`, cron ogni 20' | Chiama `workflow_dispatch` via API. Sostituisce `on: schedule`, che dal 26/08/2026 non viene più consegnato a questo account — sezione 8 |
+| Ingestion/ETL | GitHub Actions + Python 3 (`feedparser`), nel repo `personal-feed-data` | Sostituisce n8n. Il workflow fa il checkout di questo repo per il codice e scrive nel proprio. `feedparser` è la libreria più tollerante verso feed sporchi |
+| Orario dell'ingestion | Cloudflare Worker `feed-ingest-cron`, cron ogni 20' | Chiama `workflow_dispatch` via API e, se GitHub ha disabilitato il workflow, lo riaccende e ritenta — sezione 8 |
 | Auth Worker → Actions | PAT fine-grained su `personal-feed`, **solo** `Actions: Read and write` | Secret `GH_TOKEN` nel Worker. Non può toccare il codice né il repo dati. **Scade il 28/08/2027**: quel giorno il feed si ferma in silenzio, e a dirlo sarà solo il timbro in alto nell'app |
-| Auth Action → dati | Deploy key SSH (secret `DATA_DEPLOY_KEY`) | Scrittura sul solo repo dati, senza scadenza |
+| Auth Action → dati | Nessuna: il workflow scrive nel proprio repo con il `GITHUB_TOKEN` del run | La deploy key SSH è stata rimossa l'08/11/2026 col trasloco dell'ingestion |
 | Auth browser → dati | PAT fine-grained su `personal-feed-data`, Contents: Read and write | Solo per lo stato letto/salvato. Lo inserisce l'utente, resta in `localStorage` |
 | Ricerca | Client-side sui file mensili scaricati on demand | Sostituisce la full-text search di Postgres |
 | Versionamento | GitHub | Codice e dati in due repo, entrambi pubblici |
@@ -490,14 +491,24 @@ finestra.
   umano; la discussione pubblica `community/discussions/206019` raccoglie altri utenti colpiti
   dalla stessa data, chi con zero run e chi con ritardi da 3 a 10 ore.
 - **Quindi l'orario sta fuori.** Un Worker di Cloudflare (`feed-ingest-cron`, piano gratuito)
-  chiama `workflow_dispatch` ogni 20 minuti, con un PAT fine-grained ristretto a questo solo
-  repository e al solo permesso `Actions: Read and write` — non può toccare il codice né il repo
-  dati. Vale la pena dirlo esplicito per chi legge fra sei mesi: **non riportare l'orario dentro
-  Actions per semplificare**, a meno di aver prima verificato che
-  `GET /actions/runs?event=schedule` sulla sonda sia tornato a crescere.
-  Il blocco `on: schedule` resta nel workflow proprio come canarino: se un giorno ricomincia a
-  scattare lo si vede dai run con `event=schedule`, e `concurrency` impedisce che i due percorsi
-  si accavallino.
+  chiama `workflow_dispatch` ogni 20 minuti, con un PAT fine-grained ristretto ai soli repo del
+  progetto e al solo permesso `Actions: Read and write` — non può toccare il codice. Vale la
+  pena dirlo esplicito per chi legge fra sei mesi: **non riportare l'orario dentro Actions per
+  semplificare**. Il blocco `on: schedule` resta comunque nel workflow come seconda gamba.
+- **Poi lo scheduler è guarito, e si è rotto qualcos'altro.** Il 27/10/2026 alle 22:27 UTC è
+  arrivato l'ultimo run — ed era `schedule`, quindi il cron di GitHub era tornato a funzionare da
+  solo. Poi di nuovo silenzio, undici giorni, scoperti solo perché il feed sull'iPhone era
+  vecchio. Causa: `state: disabled_inactivity`. GitHub spegne i workflow schedulati dopo **60
+  giorni senza attività nel repository**, e in `personal-feed` l'ultimo push era del 28/08 —
+  il codice è finito, nessuno ci scrive. 28/08 + 60 giorni = 27/10, al giorno.
+  Da notare: **i dispatch del Worker non contano come attività.** Ne erano arrivati tre all'ora
+  per due mesi e il repo è stato considerato inattivo lo stesso.
+- **Rimedio, l'08/11/2026, su due fronti.** L'ingestion è traslocata in `personal-feed-data`,
+  che riceve un commit a ogni run: lì scrive nel proprio repo col `GITHUB_TOKEN` e la deploy key
+  sparisce. E il Worker, se un dispatch viene rifiutato, chiama
+  `PUT /actions/workflows/{id}/enable` e ritenta: il clic su "Enable workflow" che altrimenti
+  tocca a una persona undici giorni dopo. Non è dimostrato che i commit del bot contino come
+  attività per la regola dei 60 giorni — per questo la garanzia è il Worker, non il trasloco.
 - **I workflow schedulati vengono disattivati dopo 60 giorni di inattività del repo.** GitHub
   manda una mail e si riabilitano con un click. Non è quello che è successo qui — i repo sono
   nati il 24/08/2026 e ricevono push ogni giorno, e l'API riporta `state: active` e non
